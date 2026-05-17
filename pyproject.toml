@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iax2"
+dynamic = ["version"]
+description = "Pure-Python implementation of the IAX2 protocol (RFC 5456)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Jason D. McCormick" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Topic :: Communications :: Telephony",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "mypy", "ruff"]
+
+[tool.hatch.version]
+path = "src/pyiax2/_version.py"
