@@ -21,7 +21,7 @@ unchecked milestone.**
   possible.
 - Optional deps only: `cryptography` (RSA auth, AES-128 encryption).
 - Python >= 3.11 (Debian 12 bookworm is the oldest ASL3 target).
-- Git: commit directly to `main` at each milestone; never push.
+- Git: commit directly to `main` at each milestone with `--no-gpg-sign`; never push.
 - Deliverables: pip-installable (hatchling), Debian packaging (`debian/`,
   pybuild), Sphinx docs, examples (client + server), unit + interop tests.
 
@@ -50,7 +50,7 @@ unchecked milestone.**
 
 - [x] M0  Clean skeleton: pyproject fix, package layout, tooling (ruff/mypy/pytest config)
 - [x] M1  Wire format: constants, formats, IEs, frames + exhaustive unit tests
-- [ ] M2  Auth (plaintext/MD5/RSA), call tokens
+- [x] M2  Auth (plaintext/MD5/RSA), call tokens
 - [ ] M3  Transport + reliability (ACK/retransmit/VNAK/timestamps), POKE/PING/LAGRQ
 - [ ] M4  Calls: outbound NEW→ACCEPT→ANSWER, inbound, hangup/reject, auth flows
 - [ ] M5  Media: voice full/mini frames, codecs ulaw/alaw/slin, DTMF, text, HTML/URL, control frames, quelch
