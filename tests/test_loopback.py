@@ -309,3 +309,58 @@ async def test_dpreq_dprep(pair):
     assert await call.query_dialplan("100") & iax2.constants.DPStatus.EXISTS
     assert await call.query_dialplan("999") & iax2.constants.DPStatus.NONEXISTENT
     await call.hangup()
+
+
+async def test_encrypted_call_and_key_rotation():
+    enc = iax2.Encryption.AES128 | iax2.Encryption.KEYROTATE
+    server = iax2.Endpoint("127.0.0.1", 0, users={"bob": Credentials(secret="a;pw")},
+                           encryption=enc, force_encryption=True)
+    client = iax2.Endpoint("127.0.0.1", 0, encryption=enc)
+    await server.start()
+    await client.start()
+    try:
+        t = asyncio.create_task(_answer_one(server))
+        call = await client.dial("127.0.0.1", "1", port=server.port, username="bob",
+                                 secret="pw", timeout=5)
+        scall = await t
+        assert call.session.crypto is not None and scall.session.crypto is not None
+        assert call.session.crypto.tx_key == scall.session.crypto.rx_key
+        pcm = struct.pack("<160h", *([1200] * 160))
+        call.send_pcm(pcm)
+        call.send_pcm(pcm)
+        f1 = await scall.recv_audio(timeout=2)
+        f2 = await scall.recv_audio(timeout=2)
+        assert f1 is not None and f2 is not None and not f2.full
+        from iax2 import crypto
+        crypto._rotate(call.session)  # force an RTKEY
+        await asyncio.sleep(0.1)
+        assert call.session.crypto.tx_key == scall.session.crypto.rx_key
+        call.send_pcm(pcm)
+        assert await scall.recv_audio(timeout=2) is not None
+        call.send_text("secret text")
+        while True:
+            ev = await scall.next_event(timeout=2)
+            assert ev is not None
+            if isinstance(ev, TextEvent):
+                assert ev.text == "secret text"
+                break
+        await call.hangup()
+        await asyncio.wait_for(scall.wait_ended(), 5)
+    finally:
+        await client.close()
+        await server.close()
+
+
+async def test_force_encryption_rejects_plain_caller():
+    server = iax2.Endpoint("127.0.0.1", 0, users={"bob": Credentials(secret="pw")},
+                           encryption=iax2.Encryption.AES128, force_encryption=True)
+    client = iax2.Endpoint("127.0.0.1", 0)
+    await server.start()
+    await client.start()
+    try:
+        with pytest.raises(iax2.CallRejected):
+            await client.dial("127.0.0.1", "1", port=server.port, username="bob", secret="pw",
+                              timeout=5)
+    finally:
+        await client.close()
+        await server.close()

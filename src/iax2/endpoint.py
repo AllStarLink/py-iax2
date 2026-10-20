@@ -58,6 +58,7 @@ from .frames import (
     TrunkFrame,
     VideoFrame,
     parse_datagram,
+    peek_call_numbers,
 )
 from .ies import IEs
 from .session import Session, Timing
@@ -390,12 +391,21 @@ class Endpoint:
     # ------------------------------------------------------------- receiving
 
     def _datagram_received(self, data: bytes, addr: Addr) -> None:
+        kind, src, dst = peek_call_numbers(data)
+        enc: Session | None = None
+        if kind == "full" and dst not in (0, 1):
+            enc = self._sessions.get(dst)
+        elif kind == "mini":
+            enc = self._by_peer.get((addr, src)) or self._by_transfer.get((addr, src))
+        if enc is not None and enc.crypto is not None and enc.crypto.rx_active:
+            plain = enc.crypto.decrypt(data)
+            if plain is None:
+                log.info("%r: packet decrypt failed", enc)
+                return
+            data = plain
         try:
             frame = parse_datagram(data)
         except FrameError as exc:
-            # Encrypted frames can't be parsed blind; let the session try.
-            if self._try_encrypted(data, addr):
-                return
             log.debug("dropping bad datagram from %s: %s", addr, exc)
             return
         if isinstance(frame, FullFrame):
@@ -406,25 +416,13 @@ class Endpoint:
             key = (addr, frame.source_call)
             s = self._by_peer.get(key) or self._by_transfer.get(key)
             if s is not None:
-                if s.decryptor is not None:
-                    s.handle_encrypted_mini(data)
-                else:
-                    s.handle_mini(frame)
+                s.handle_mini(frame)
         elif isinstance(frame, VideoFrame):
             s = self._by_peer.get((addr, frame.source_call))
             if s is not None:
                 s.handle_video(frame)
         elif isinstance(frame, TrunkFrame):
             self.trunks.receive(frame, addr)
-
-    def _try_encrypted(self, data: bytes, addr: Addr) -> bool:
-        if len(data) >= 4 and data[0] & 0x80:
-            dcall = ((data[2] << 8) | data[3]) & 0x7FFF
-            s = self._sessions.get(dcall)
-            if s is not None and s.decryptor is not None:
-                s.handle_encrypted_full(data, addr)
-                return True
-        return False
 
     def session_for_peer(self, addr: Addr, peer_callno: int) -> Session | None:
         """Find a session by peer address and peer call number."""
@@ -434,18 +432,12 @@ class Endpoint:
         s: Session | None = None
         if frame.dest_call:
             s = self._sessions.get(frame.dest_call)
-            if s is not None and s.decryptor is not None and frame.frame_type != FrameType.IAX:
-                s.handle_encrypted_full(data, addr)
-                return
             if s is not None and s.addr != addr and not (
                 s.transfer_addr == addr
                 or (frame.frame_type == FrameType.IAX
                     and frame.subclass in (IAXCommand.TXCNT, IAXCommand.TXACC))
             ):
                 s = None
-            if s is not None and s.decryptor is not None and s.peer_callno == frame.source_call:
-                # encrypted sessions also receive the occasional unencrypted IAX frame
-                pass
         else:
             s = self._by_peer.get((addr, frame.source_call))
         if s is not None:
@@ -832,7 +824,7 @@ class Endpoint:
     # ----------------------------------------------- encryption/dialplan hooks
 
     def encryption_supported(self) -> bool:
-        """``True`` if AES encryption is available (``cryptography`` installed)."""
+        """``True`` if AES encryption is configured and ``cryptography`` is installed."""
         from . import crypto
 
         return crypto.available() and bool(self.config.encryption)
@@ -840,13 +832,6 @@ class Endpoint:
     def negotiated_encryption(self, offered: int) -> int:
         """Intersect peer-offered encryption methods with ours."""
         return offered & self.config.encryption
-
-    def setup_encryption(self, call: Call, challenge: str, secret: str, methods: int) -> None:
-        """Enable AES encryption on ``call`` (keys derived from challenge+secret)."""
-        from . import crypto
-
-        if crypto.available() and methods & self.config.encryption:
-            crypto.enable(call.session, challenge, secret)
 
     def rotate_key(self, call: Call, ies: IEs) -> None:
         """Handle RTKEY (encryption key rotation)."""

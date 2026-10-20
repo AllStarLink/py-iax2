@@ -840,8 +840,19 @@ class Call:
             return
         self.auth_method = method
         challenge = ies.get(IE.CHALLENGE)
-        if ies.get(IE.ENCRYPTION) and creds.secret and challenge:
-            self.endpoint.setup_encryption(self, challenge, creds.secret, ies.get(IE.ENCRYPTION))
+        # merge_encryption(): only with MD5, and only methods both sides offered
+        enc = ies.get(IE.ENCRYPTION, 0) & self.info.encryption
+        if enc and method is AuthMethod.MD5 and creds.secret and challenge:
+            from . import crypto
+
+            crypto.enable_caller(self.session, challenge, creds.secret, enc)
+        elif self.endpoint.config.force_encryption:
+            self.session.send_command(IAXCommand.HANGUP,
+                                      IEs().add(IE.CAUSECODE, int(Cause.FACILITY_REJECTED)),
+                                      final=True)
+            self._end("encryption not negotiated", int(Cause.FACILITY_REJECTED), by_peer=False,
+                      reason="local")
+            return
         self.session.send_command(IAXCommand.AUTHREP, reply)
 
     def _iax_authrep(self, frame: FullFrame, ies: IEs) -> None:
@@ -856,9 +867,6 @@ class Call:
             self.endpoint.auth_failed(self, IAXCommand.REJECT)
             return
         self.auth_method = method
-        if self.info.encryption and creds.secret:
-            self.endpoint.setup_encryption(self, self._challenge, creds.secret,
-                                           self.info.encryption)
         self._challenge = None
         self.endpoint.call_authorized(self)
 
@@ -941,13 +949,22 @@ class Call:
         """Send AUTHREQ for an incoming call (server side)."""
         self.credentials = creds
         self._challenge = new_challenge()
-        ies = IEs().add(IE.AUTHMETHODS, int(creds.offered_methods()))
+        methods = creds.offered_methods()
+        ies = IEs().add(IE.AUTHMETHODS, int(methods))
         ies.add(IE.CHALLENGE, self._challenge)
-        if self.info.encryption and self.endpoint.encryption_supported():
-            ies.add(IE.ENCRYPTION, self.endpoint.negotiated_encryption(self.info.encryption))
+        enc = 0
+        if methods & AuthMethod.MD5 and creds.secret and self.endpoint.encryption_supported():
+            enc = self.endpoint.negotiated_encryption(self.info.encryption)
+            if enc:
+                ies.add(IE.ENCRYPTION, enc)
         ies.add(IE.USERNAME, self.info.username or creds.username or "")
         self._set_state(CallState.AUTHENTICATING)
         self.session.send_command(IAXCommand.AUTHREQ, ies)
+        if enc:
+            # From now on the caller encrypts (starting with AUTHREP).
+            from . import crypto
+
+            crypto.enable_callee(self.session, self._challenge, creds.secret.split(";"), enc)
 
     def _on_accepted(self, fmt: int) -> None:
         self.format = fmt

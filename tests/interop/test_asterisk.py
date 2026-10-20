@@ -278,3 +278,59 @@ async def test_native_transfer_of_asterisk_calls(asterisk):
     finally:
         await ep.close()
         hangup_test_channels()
+
+
+ENC = iax2.Encryption.AES128 | iax2.Encryption.KEYROTATE
+
+
+async def test_encrypted_call_to_asterisk(asterisk):
+    ep = iax2.Endpoint("127.0.0.1", 0, encryption=ENC)
+    await ep.start()
+    try:
+        call = await ep.dial("127.0.0.1", "100", username="pyiax-enc", secret="encsecret",
+                             context="pyiax-test", timeout=5)
+        assert call.session.crypto is not None
+        player = asyncio.create_task(call.play_pcm(tone(440, 160 * 50)))
+        frames = await collect_audio(call, 1.4)
+        await player
+        assert goertzel(b"".join(f.pcm for f in frames[5:35]), 440) > 0.5
+        assert "pyiax-enc" in asterisk("iax2 show channels")
+        # Rotate our transmit key (RTKEY) and check Asterisk keeps decrypting.
+        from iax2 import crypto
+
+        crypto._rotate(call.session)
+        player = asyncio.create_task(call.play_pcm(tone(880, 160 * 50)))
+        frames = await collect_audio(call, 1.4)
+        await player
+        assert goertzel(b"".join(f.pcm for f in frames[10:35]), 880) > 0.5
+        await call.hangup()
+    finally:
+        await ep.close()
+
+
+async def test_unencrypted_call_refused_by_asterisk(ep):
+    with pytest.raises(iax2.CallRejected):
+        await ep.dial("127.0.0.1", "100", username="pyiax-enc", secret="encsecret",
+                      context="pyiax-test", timeout=10)
+
+
+async def test_encrypted_call_from_asterisk(asterisk):
+    from .setup_asterisk import LIB_PORT
+
+    ep = iax2.Endpoint("127.0.0.1", LIB_PORT,
+                       users={"asterisk": iax2.Credentials(secret="outsecret")},
+                       allow_guest=False, encryption=ENC, force_encryption=True)
+    await ep.start()
+    try:
+        asterisk("channel originate IAX2/pyiax-out-enc/500 extension 100@pyiax-test")
+        call = await ep.accept_call(timeout=10)
+        assert call is not None and call.session.crypto is not None
+        await call.answer()
+        player = asyncio.create_task(call.play_pcm(tone(500, 160 * 50)))
+        frames = await collect_audio(call, 1.4)
+        await player
+        assert goertzel(b"".join(f.pcm for f in frames[10:40]), 500) > 0.5
+        await call.hangup()
+    finally:
+        await ep.close()
+        hangup_test_channels()

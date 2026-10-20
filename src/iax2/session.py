@@ -31,7 +31,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from .constants import IE, FrameType, IAXCommand
 from .formats import format_info
@@ -209,9 +209,8 @@ class Session:
 
         self.destroyed = False
         self.error: str | None = None
-        # Optional encryption hooks installed by iax2.crypto
-        self.encryptor: Callable[[bytes], bytes] | None = None
-        self.decryptor: Callable[[bytes], bytes | None] | None = None
+        # AES encryption state (iax2.crypto.CallCrypto), if negotiated
+        self.crypto: Any = None
 
     # ------------------------------------------------------------------ util
 
@@ -447,12 +446,11 @@ class Session:
         return frame
 
     def _transmit_full(self, frame: FullFrame, addr: Addr) -> None:
-        data = frame.to_bytes()
-        if self.encryptor is not None:
-            data = self.encryptor(data)
-        self._transmit_raw(data, addr)
+        self._transmit_raw(frame.to_bytes(), addr)
 
     def _transmit_raw(self, data: bytes, addr: Addr) -> None:
+        if self.crypto is not None:
+            data = self.crypto.encrypt(data)
         self.endpoint.sendto(data, addr)
 
     def _attempt(self, p: _Pending) -> None:
@@ -616,32 +614,6 @@ class Session:
             self.rseqno = their_iseqno
             if destroy:
                 self.destroy()
-
-    def handle_encrypted_full(self, data: bytes, addr: Addr) -> None:
-        """Decrypt and process an encrypted full frame."""
-        assert self.decryptor is not None
-        plain = self.decryptor(data)
-        if plain is None:
-            log.warning("%r: packet decrypt failed", self)
-            return
-        try:
-            frame = FullFrame.from_bytes(plain)
-        except Exception:  # noqa: BLE001
-            log.warning("%r: decrypted frame is malformed", self)
-            return
-        self.handle_full(frame, addr)
-
-    def handle_encrypted_mini(self, data: bytes) -> None:
-        """Decrypt and process an encrypted mini frame."""
-        assert self.decryptor is not None
-        plain = self.decryptor(data)
-        if plain is None:
-            return
-        try:
-            frame = MiniFrame.from_bytes(plain)
-        except Exception:  # noqa: BLE001
-            return
-        self.handle_mini(frame)
 
     def handle_mini(self, frame: MiniFrame) -> None:
         """Process an incoming mini (voice) frame."""

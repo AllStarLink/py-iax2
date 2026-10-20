@@ -102,7 +102,7 @@ class TransferManager:
         for c in (a, b):
             if not c.is_active or not c.peer_callno:
                 raise CallError(f"{c!r} is not up")
-            if c.session.encryptor is not None:
+            if c.session.crypto is not None:
                 raise CallError("transfers are not supported for encrypted calls")
         txid = secrets.randbelow(2**32)
         for this, other in ((a, b), (b, a)):
@@ -149,7 +149,7 @@ class TransferManager:
         s = call.session
         addr = ies.get(IE.APPARENT_ADDR)
         callno = ies.get(IE.CALLNO)
-        if not self.enabled or addr is None or not callno or s.encryptor is not None:
+        if not self.enabled or addr is None or not callno or s.crypto is not None:
             log.info("%r: refusing transfer request", call)
             s.send_command(IAXCommand.TXREJ)
             return
