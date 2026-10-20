@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# py-iax2 interop test keys
+tests/interop/pyiax-test.key
+tests/interop/pyiax-test.pub

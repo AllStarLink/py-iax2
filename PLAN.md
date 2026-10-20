@@ -55,7 +55,7 @@ unchecked milestone.**
 - [x] M4  Calls: outbound NEW→ACCEPT→ANSWER, inbound, hangup/reject, auth flows
 - [x] M5  Media: voice full/mini frames, codecs ulaw/alaw/slin, DTMF, text, HTML/URL, control frames, quelch
 - [x] M6  Registration client + registrar server
-- [ ] M7  Interop test harness against local Asterisk (scripted config, pytest marker `interop`)
+- [x] M7  Interop test harness against local Asterisk (scripted config, pytest marker `interop`)
 - [ ] M8  Transfers (TXREQ…), trunking (meta trunk rx/tx), video meta frames, DPREQ, MWI
 - [ ] M9  AES-128 encryption (optional dep)
 - [ ] M10 Sync wrapper, jitter buffer
@@ -67,3 +67,8 @@ unchecked milestone.**
 
 - 2026-10-19: Plan written; Asterisk 22.10.1 source + RFC fetched.
 - 2026-10-20: M3–M6 done (session/reliability, calls, media+codecs, registration) with loopback tests. Transfer/trunk implemented but untested; crypto is a stub. Next: M7 interop vs local Asterisk.
+- 2026-10-20: M7 interop harness: `sudo python3 tests/interop/setup_asterisk.py`, then
+  `PYTHONPATH=src python3 -m pytest -m interop tests/interop` (18 tests, all pass vs 22.10.1).
+  Findings: ASL3 has autoload=no (setup loads app_echo/playtones/senddtmf/read/res_clioriginate);
+  Asterisk keys live in /usr/share/asterisk/keys; Asterisk's forced jitter buffer holds DTMF
+  until voice flows (not our bug); supermini trunk frames must not carry two entries of one call.

@@ -15,6 +15,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from .formats import format_info
 from .frames import TrunkEntry, TrunkFrame
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -26,6 +27,18 @@ __all__ = ["TrunkManager"]
 log = logging.getLogger("iax2.trunk")
 
 Addr = tuple[str, int]
+
+
+def _duration_ms(fmt: int, payload: bytes) -> int:
+    """Duration of ``payload`` in ms (20 if it can't be determined)."""
+    try:
+        info = format_info(fmt)
+        n = info.samples_for_bytes(len(payload))
+        if n and info.sample_rate:
+            return max(1, n * 1000 // info.sample_rate)
+    except (KeyError, ValueError):
+        pass
+    return 20
 
 
 @dataclass
@@ -56,6 +69,15 @@ class TrunkManager:
     def queue(self, session: Session, ts: int, payload: bytes) -> None:
         """Queue one call's voice payload for the next trunk frame to its peer."""
         p = self._peer(session.addr)
+        if not self.endpoint.config.trunk_timestamps and any(
+            e.source_call == session.callno for e in p.entries
+        ):
+            # Without per-call timestamps every entry inherits the trunk frame's
+            # timestamp, so two frames of one call must never share a trunk frame
+            # (Asterisk's jitter buffer would drop the second as a duplicate).
+            if p.handle is not None:
+                p.handle.cancel()
+            self._flush(p)
         p.entries.append(TrunkEntry(session.callno, payload, ts & 0xFFFF))
         if p.handle is None:
             delay = self.endpoint.config.trunk_interval / 1000
@@ -93,5 +115,6 @@ class TrunkManager:
                 p = self._peer(addr)
                 if p.rx_start is None or not frame.timestamp:
                     p.rx_start = self.endpoint.clock() - frame.timestamp / 1000
-                ts = max(s.last + 1, int((self.endpoint.clock() - p.rx_start) * 1000))
+                base = int((self.endpoint.clock() - p.rx_start) * 1000)
+                ts = max(base, s.last + _duration_ms(s.voiceformat, e.payload)) if s.last else base
             s.handle_trunk_entry(e.payload, ts)
