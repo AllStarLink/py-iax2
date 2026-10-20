@@ -479,7 +479,7 @@ class IEs:
 
     @property
     def capability(self) -> int:
-        """Capability mask: CAPABILITY2 (64-bit) if present, else CAPABILITY, else 0."""
+        """The capability mask (CAPABILITY2 if present, else CAPABILITY, else 0)."""
         v = self.get(IE.CAPABILITY2)
         if v is None:
             v = self.get(IE.CAPABILITY, 0)
@@ -487,7 +487,7 @@ class IEs:
 
     @property
     def format(self) -> int:
-        """Desired format: FORMAT2 (64-bit) if present, else FORMAT, else 0."""
+        """The desired format (FORMAT2 if present, else FORMAT, else 0)."""
         v = self.get(IE.FORMAT2)
         if v is None:
             v = self.get(IE.FORMAT, 0)

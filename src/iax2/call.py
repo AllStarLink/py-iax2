@@ -103,13 +103,13 @@ class CallState(enum.Enum):
     """Call lifecycle states."""
 
     DIALING = "dialing"
-    """Outgoing: NEW sent, waiting for the callee."""
+    """An outgoing call whose NEW has been sent; waiting for the callee."""
     AUTHENTICATING = "authenticating"
     """Authentication exchange in progress."""
     INCOMING = "incoming"
-    """Incoming: NEW received and authorised, not yet accepted."""
+    """An incoming call that is authorised but not yet accepted."""
     ACCEPTED = "accepted"
-    """ACCEPT exchanged: codec agreed and media may flow."""
+    """ACCEPT has been exchanged; the codec is agreed and media may flow."""
     RINGING = "ringing"
     """The callee indicated ringing."""
     ANSWERED = "answered"
@@ -681,7 +681,7 @@ class Call:
         self.session.send(FrameType.HTML, int(command), data)
 
     def send_image(self, data: bytes, format: int) -> None:
-        """Send an IMAGE frame in image ``format`` (e.g. :attr:`Format.PNG`)."""
+        """Send an IMAGE frame in image ``format`` (e.g. ``Format.PNG``)."""
         self._require_active()
         self.session.send(FrameType.IMAGE, format, data)
 

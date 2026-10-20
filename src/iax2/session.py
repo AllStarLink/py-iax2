@@ -41,7 +41,7 @@ from .ies import IEs
 if TYPE_CHECKING:  # pragma: no cover
     from .endpoint import Endpoint
 
-__all__ = ["Session", "SessionOwner", "Timing"]
+__all__ = ["Session", "SessionOwner", "SessionStats", "Timing"]
 
 log = logging.getLogger("iax2.session")
 

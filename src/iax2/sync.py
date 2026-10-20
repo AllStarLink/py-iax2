@@ -73,7 +73,7 @@ class SyncCall:
     """Blocking view of a :class:`~iax2.call.Call`.
 
     Read-only attributes (``state``, ``format``, ``info``, ``cause`` ...) are
-    forwarded to the underlying call; the wrapped call is :attr:`call`.
+    forwarded to the underlying call; the wrapped call is ``call``.
     """
 
     def __init__(self, call: Call, lt: _LoopThread):

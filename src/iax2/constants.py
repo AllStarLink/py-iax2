@@ -45,11 +45,11 @@ DEFAULT_PORT = 4569
 DEFAULT_REG_EXPIRE = 60
 #: Largest call number permitted by the 15-bit call number field.
 IAX_MAX_CALLS = 32768
-#: High bit of the first 16-bit word: set on full frames.
+#: High bit of the first 16-bit word, set on full frames.
 IAX_FLAG_FULL = 0x8000
-#: High bit of the destination call number: set on retransmitted full frames.
+#: High bit of the destination call number, set on retransmitted full frames.
 IAX_FLAG_RETRANS = 0x8000
-#: High bit of the subclass byte: the subclass is a power-of-two exponent.
+#: High bit of the subclass byte, meaning the subclass is a power-of-two exponent.
 IAX_FLAG_SC_LOG = 0x80
 #: Mask of the exponent in a compressed subclass.
 IAX_MAX_SHIFT = 0x3F
@@ -61,7 +61,7 @@ class FrameType(enum.IntEnum):
     """Full-frame type byte (RFC 5456 §8.2; numbering follows Asterisk)."""
 
     DTMF_END = 0x01
-    """DTMF digit released (RFC: "DTMF"). Subclass is the ASCII digit."""
+    """DTMF digit released (called "DTMF" in the RFC). Subclass is the ASCII digit."""
     VOICE = 0x02
     """Audio payload. Subclass is the codec format bit."""
     VIDEO = 0x03
@@ -291,9 +291,9 @@ class MetaCommand(enum.IntEnum):
     VIDEO = 2
 
 
-#: Trunk meta-frame command data: entries are "classic" (callno, len) pairs.
+#: Trunk meta-frame command data for "classic" (callno, len) entries.
 META_TRUNK_SUPERMINI = 0
-#: Trunk meta-frame command data: entries are (len, mini-frame) with timestamps.
+#: Trunk meta-frame command data for (len, mini-frame) entries with timestamps.
 META_TRUNK_MINI = 1
 __all__ += ["META_TRUNK_MINI", "META_TRUNK_SUPERMINI"]
 

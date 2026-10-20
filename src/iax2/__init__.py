@@ -23,6 +23,7 @@ The main classes are :class:`Endpoint` (one UDP socket; dials, accepts,
 registers) and :class:`Call`. Blocking code can use :mod:`iax2.sync`.
 """
 
+from . import audio
 from ._version import __version__
 from .auth import Credentials, RSAKeyStore
 from .call import Call, CallInfo, CallState, Direction
@@ -114,6 +115,7 @@ __all__ = [
     "Timing",
     "TransportError",
     "__version__",
+    "audio",
     "get_codec",
     "register_codec",
 ]
