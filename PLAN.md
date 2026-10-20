@@ -61,7 +61,7 @@ unchecked milestone.**
 - [x] M10 Sync wrapper, jitter buffer
 - [x] M11 Examples: client (dial/play/record), server (echo, IVR-ish, registrar), CLI
 - [x] M12 Docs (Sphinx): tutorial, API reference, protocol notes, Asterisk interop guide
-- [ ] M13 Packaging: wheel/sdist check, debian/ (pybuild), CI-ish `tox`, changelog
+- [x] M13 Packaging: wheel/sdist check, debian/ (pybuild), CI-ish `tox`, changelog
 
 ## Progress log
 
@@ -77,3 +77,4 @@ unchecked milestone.**
 - 2026-10-20: M10 done: iax2.sync (SyncEndpoint/SyncCall on a loop thread), JitterBuffer + Call.playout(), RR stats (jitter/OOO) in PONG.
 - 2026-10-20: M11 done: iax2-tool CLI (poke/call/serve/register/decode), iax2.audio helpers, examples/ (echo_server, dial_play_record, sync_client, mini_pbx, allstar_client) all run against Asterisk/app_rpt. Interop has an app_rpt client test (pyiax-rpt user).
 - 2026-10-20: M12 done: Sphinx docs (guide, CLI, protocol notes, API; nitpicky -W clean), README, CHANGELOG. Installed via apt: python3-sphinx, python3-hatchling, dh-python, pybuild-plugin-pyproject, debhelper, devscripts, python3-build.
+- 2026-10-20: M13 done: wheel/sdist build clean (python3 -m build --no-isolation); debian/ (pybuild + dh-sequence-python3, tests run at build, manpage); dpkg-buildpackage -b OK, lintian only ITP warning; .deb smoke-tested then removed. Next: quality pass (ruff, mypy --strict), review, then report to user.

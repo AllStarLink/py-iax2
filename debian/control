@@ -1,0 +1,31 @@
+Source: python-iax2
+Section: python
+Priority: optional
+Maintainer: Jason D. McCormick <jason@mfamily.org>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               dh-sequence-python3,
+               pybuild-plugin-pyproject,
+               python3-all,
+               python3-hatchling,
+               python3-cryptography <!nocheck>,
+               python3-pytest <!nocheck>,
+               python3-pytest-asyncio <!nocheck>
+Standards-Version: 4.7.0
+Homepage: https://github.com/AllStarLink/py-iax2
+Rules-Requires-Root: no
+Testsuite: autopkgtest-pkg-pybuild
+
+Package: python3-iax2
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}
+Recommends: python3-cryptography
+Description: pure-Python implementation of the IAX2 VoIP protocol
+ py-iax2 implements IAX2 (Inter-Asterisk eXchange, RFC 5456) for Python
+ asyncio and interoperates with Asterisk, including AllStarLink app_rpt
+ nodes. It supports outgoing and incoming calls, MD5/RSA authentication,
+ call tokens, Asterisk-compatible AES-128 encryption, registration,
+ trunking, native transfers, a jitter buffer and built-in G.711 and
+ signed-linear codecs.
+ .
+ This package also provides the iax2-tool command for testing IAX2 peers.

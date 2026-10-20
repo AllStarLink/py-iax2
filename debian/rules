@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=iax2
+# Run the unit and loopback tests from the source tree against the built
+# package (the Asterisk interoperability tests are excluded by default).
+export PYBUILD_TEST_ARGS=--rootdir={dir} -p no:cacheprovider {dir}/tests
+
+%:
+	dh $@ --buildsystem=pybuild

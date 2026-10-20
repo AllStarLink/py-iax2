@@ -1,0 +1,44 @@
+.TH IAX2-TOOL 1 "October 2026" "py-iax2" "User Commands"
+.SH NAME
+iax2-tool \- test utility for IAX2 (Inter-Asterisk eXchange) peers
+.SH SYNOPSIS
+.B iax2-tool
+[\fB\-v\fR|\fB\-vv\fR] [\fB\-b\fR \fIADDR\fR[:\fIPORT\fR]] \fICOMMAND\fR ...
+.SH DESCRIPTION
+.B iax2-tool
+uses the py-iax2 library to qualify, call, answer and register with IAX2
+peers such as Asterisk and AllStarLink nodes.
+.SH OPTIONS
+.TP
+.BR \-v ", " \-\-verbose
+Log protocol events; give twice to log every frame sent and received.
+.TP
+.BR \-b ", " \-\-bind " " \fIADDR\fR[:\fIPORT\fR]
+Local address to bind (default 0.0.0.0:0, any free port).
+.SH COMMANDS
+.TP
+.B poke \fIHOST\fR[:\fIPORT\fR] [\-c \fICOUNT\fR] [\-t \fISECONDS\fR]
+Send POKE and print the round-trip time.
+.TP
+.B call \fIHOST\fR[:\fIPORT\fR] \fIEXTEN\fR [\-u \fIUSER\fR] [\-s \fISECRET\fR] [\-C \fICONTEXT\fR] [\-\-play \fIWAV\fR | \-\-tone \fIHZ\fR] [\-\-record \fIWAV\fR] [\-\-dtmf \fIDIGITS\fR] [\-\-text \fITEXT\fR] [\-\-codecs \fILIST\fR] [\-d \fISECONDS\fR]
+Place a call, optionally play audio, send DTMF or text, and record what is
+received. DTMF, text and the hangup cause are printed.
+.TP
+.B serve [\-u \fINAME\fR:\fISECRET\fR ...] [\-\-guest] [\-\-play \fIWAV\fR | \-\-tone \fIHZ\fR] [\-\-ring \fISECONDS\fR] [\-\-registrar] [\-\-no\-calltoken]
+Answer incoming calls; echo the caller's audio back, or play a file or tone.
+.TP
+.B register \fIHOST\fR[:\fIPORT\fR] \fIUSER\fR [\fISECRET\fR] [\-\-refresh \fISECONDS\fR] [\-\-once]
+Register with a server and keep the registration refreshed.
+.TP
+.B decode \fIHEX\fR...
+Decode an IAX2 datagram given as hexadecimal.
+.SH EXAMPLES
+.nf
+iax2-tool poke pbx.example.org
+iax2-tool call pbx.example.org 600 \-u me \-s secret \-\-tone 440 \-\-record out.wav
+iax2-tool \-b :4569 serve \-u alice:secret
+.fi
+.SH SEE ALSO
+.BR asterisk (8)
+.SH AUTHOR
+Jason D. McCormick <jason@mfamily.org>
