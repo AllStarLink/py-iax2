@@ -1,1 +1,0 @@
-"""Full frames (seqnos, timestamps)."""

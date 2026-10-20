@@ -1,1 +1,0 @@
-"""Optional blocking-socket transport."""
