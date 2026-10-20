@@ -58,7 +58,7 @@ unchecked milestone.**
 - [x] M7  Interop test harness against local Asterisk (scripted config, pytest marker `interop`)
 - [x] M8  Transfers (TXREQ…), trunking (meta trunk rx/tx), video meta frames, DPREQ, MWI
 - [x] M9  AES-128 encryption (optional dep)
-- [ ] M10 Sync wrapper, jitter buffer
+- [x] M10 Sync wrapper, jitter buffer
 - [ ] M11 Examples: client (dial/play/record), server (echo, IVR-ish, registrar), CLI
 - [ ] M12 Docs (Sphinx): tutorial, API reference, protocol notes, Asterisk interop guide
 - [ ] M13 Packaging: wheel/sdist check, debian/ (pybuild), CI-ish `tox`, changelog
@@ -74,3 +74,4 @@ unchecked milestone.**
   until voice flows (not our bug); supermini trunk frames must not carry two entries of one call.
 - 2026-10-20: M8 done: native transfers (endpoint + server role; interop: our server transfers two Asterisk legs), video meta frames, DPREQ/DPREP, MWI hook. NOTE interop tests must only hang up IAX2/pyiax-* channels (never 'hangup all': kills app_rpt node channels).
 - 2026-10-20: M9 done: AES-128 (Asterisk scheme, CBC zero IV, random pad, RTKEY rotation) verified both directions vs Asterisk incl. rotation.
+- 2026-10-20: M10 done: iax2.sync (SyncEndpoint/SyncCall on a loop thread), JitterBuffer + Call.playout(), RR stats (jitter/OOO) in PONG.

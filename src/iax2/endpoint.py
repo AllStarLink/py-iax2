@@ -376,12 +376,12 @@ class Endpoint:
         """Receiver-report IEs for a PONG (Asterisk ``construct_rr``)."""
         st = session.stats
         ies = IEs()
-        ies.add(IE.RR_JITTER, 0)
+        ies.add(IE.RR_JITTER, int(st.jitter_ms) & 0xFFFFFFFF)
         ies.add(IE.RR_LOSS, 0)
-        ies.add(IE.RR_PKTS, max(1, st.frames_received) & 0xFFFFFFFF)
+        ies.add(IE.RR_PKTS, max(1, st.voice_received) & 0xFFFFFFFF)
         ies.add(IE.RR_DELAY, 0)
         ies.add(IE.RR_DROPPED, 0)
-        ies.add(IE.RR_OOO, 0)
+        ies.add(IE.RR_OOO, st.out_of_order & 0xFFFFFFFF)
         return ies
 
     def trunk_queue(self, session: Session, ts: int, payload: bytes) -> None:

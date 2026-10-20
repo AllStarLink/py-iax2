@@ -217,6 +217,9 @@ class AudioFrame:
     timestamp: int
     full: bool = False
     codec: Codec | None = field(default=None, repr=False)
+    lost: bool = False
+    """``True`` for a placeholder produced by :meth:`Call.playout` for a lost frame
+    (its payload is encoded silence)."""
 
     @property
     def pcm(self) -> bytes:

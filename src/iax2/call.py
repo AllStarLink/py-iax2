@@ -318,6 +318,7 @@ class Call:
         self._rx_codec: Codec | None = None
         self._rx_format = 0
         self._dp_waiters: dict[str, asyncio.Future[int]] = {}
+        self._jitterbuffer: Any = None
 
     # ------------------------------------------------------------ properties
 
@@ -716,6 +717,43 @@ class Call:
             return await asyncio.wait_for(self._audio.get(), timeout)
         except TimeoutError:
             return None
+
+    async def playout(self, *, frame_ms: int = 20, min_delay: int = 40, max_delay: int = 500,
+                      conceal: bool = True) -> AsyncIterator[AudioFrame]:
+        """Iterate over received audio smoothed by a :class:`~iax2.jitterbuffer.JitterBuffer`.
+
+        Frames are yielded at a steady ``frame_ms`` pace, in timestamp order,
+        delayed just enough to absorb network jitter. Lost frames are
+        replaced by encoded silence with :attr:`AudioFrame.lost` set (or
+        skipped if ``conceal`` is false or the format has no codec).
+
+        While iterating, received audio is routed into the jitter buffer
+        rather than :meth:`recv_audio`.
+        """
+        from .jitterbuffer import JitterBuffer
+
+        loop = asyncio.get_running_loop()
+        jb: JitterBuffer[AudioFrame] = JitterBuffer(frame_ms, min_delay, max_delay)
+        prev = self.on_audio
+        self.on_audio = lambda f: jb.put(f, loop.time() * 1000)
+        self._jitterbuffer = jb
+        try:
+            next_tick = loop.time()
+            while not self.is_ended:
+                for item in jb.get(loop.time() * 1000):
+                    if item is not None:
+                        yield item
+                    elif conceal and self._rx_codec is not None:
+                        yield AudioFrame(self._rx_codec.silence(frame_ms), self._rx_format, 0,
+                                         codec=self._rx_codec, lost=True)
+                next_tick += frame_ms / 1000
+                delay = next_tick - loop.time()
+                if delay < -1:
+                    next_tick = loop.time()
+                await asyncio.sleep(max(0.0, delay))
+        finally:
+            self.on_audio = prev
+            self._jitterbuffer = None
 
     async def audio(self) -> AsyncIterator[AudioFrame]:
         """Iterate over received audio frames until the call ends."""

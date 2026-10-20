@@ -136,6 +136,23 @@ class SessionStats:
     rtt_ms: int | None = None
     lag_ms: int | None = None
     remote_rr: dict[str, int] = field(default_factory=dict)
+    voice_received: int = 0
+    out_of_order: int = 0
+    jitter_ms: float = 0.0
+    _last_transit: float | None = None
+    _highest_voice_ts: int = -1
+
+    def note_voice(self, ts: int, arrival_s: float) -> None:
+        """Update receive statistics for a voice frame (RFC 3550 jitter)."""
+        self.voice_received += 1
+        transit = arrival_s * 1000 - ts
+        if self._last_transit is not None:
+            self.jitter_ms += (abs(transit - self._last_transit) - self.jitter_ms) / 16
+        self._last_transit = transit
+        if ts < self._highest_voice_ts:
+            self.out_of_order += 1
+        else:
+            self._highest_voice_ts = ts
 
 
 class Session:
@@ -591,6 +608,8 @@ class Session:
             self.send_ack(frame)
         if not self.started:
             return
+        if frame.frame_type == FrameType.VOICE:
+            self.stats.note_voice(frame.timestamp, self._now())
         if self.owner is not None:
             self.owner.on_media(self, int(frame.frame_type), int(frame.subclass), frame.payload,
                                 frame.timestamp, True, frame.mark)
@@ -651,6 +670,8 @@ class Session:
     def _deliver_mini(self, ftype: int, fmt: int, payload: bytes, ts: int, mark: bool) -> None:
         if not self.started:
             return
+        if ftype == FrameType.VOICE:
+            self.stats.note_voice(ts, self._now())
         if self.owner is not None:
             self.owner.on_media(self, ftype, fmt, payload, ts, False, mark)
         if self.last < ts:

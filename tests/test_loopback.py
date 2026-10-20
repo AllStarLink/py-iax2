@@ -364,3 +364,25 @@ async def test_force_encryption_rejects_plain_caller():
     finally:
         await client.close()
         await server.close()
+
+
+async def test_playout_jitterbuffer(pair):
+    server, client = pair
+    srv_task = asyncio.create_task(_answer_one(server))
+    call = await client.dial("127.0.0.1", "1", port=server.port, username="alice",
+                             secret="s3cret", timeout=5)
+    scall = await srv_task
+    pcm = struct.pack("<160h", *([700] * 160))
+    sender = asyncio.create_task(call.play_pcm(pcm * 25))
+    got = []
+    async for f in scall.playout(min_delay=40):
+        got.append(f)
+        if len(got) == 20:
+            break
+    await sender
+    real = [f for f in got if not f.lost]
+    assert len(real) >= 18
+    ts = [f.timestamp for f in real]
+    assert ts == sorted(ts)
+    assert scall.stats.voice_received >= 20
+    await call.hangup()
