@@ -97,6 +97,10 @@ forceencryption=yes
 disallow=all
 allow=ulaw
 
+; an iaxRpt-style client of the local app_rpt node (template from ASL3 iax.conf)
+[pyiax-rpt](iaxrpt)
+secret=rptsecret
+
 [pyiax-trunk]
 type=friend
 host=dynamic

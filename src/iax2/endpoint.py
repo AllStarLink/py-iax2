@@ -583,8 +583,8 @@ class Endpoint:
         if self.on_call is not None:
             try:
                 r = self.on_call(call)
-                if inspect.isawaitable(r):
-                    self.spawn(r)  # type: ignore[arg-type]
+                if asyncio.iscoroutine(r):
+                    self.spawn(r)
             except Exception:  # noqa: BLE001
                 log.exception("on_call callback failed")
             return

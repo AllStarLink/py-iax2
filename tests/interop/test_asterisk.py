@@ -334,3 +334,23 @@ async def test_encrypted_call_from_asterisk(asterisk):
     finally:
         await ep.close()
         hangup_test_channels()
+
+
+async def test_allstarlink_app_rpt_client(asterisk, ep):
+    """Connect to the local app_rpt node like iaxRpt does (needs an ASL3 node)."""
+    nodes = asterisk("rpt localnodes").split()
+    node = next((n for n in nodes if n.isdigit()), None)
+    if node is None:
+        pytest.skip("no local app_rpt node")
+    call = await ep.dial("127.0.0.1", node, username="pyiax-rpt", secret="rptsecret",
+                         caller_number="pyiax", timeout=10)
+    texts = []
+    call.on_event = lambda ev: texts.append(ev.text) if isinstance(ev, TextEvent) else None
+    await asyncio.sleep(1)
+    call.radio_key()
+    await call.play_pcm(tone(800, 160 * 25))
+    call.radio_unkey()
+    await asyncio.sleep(2)
+    assert any(t.startswith("L") for t in texts)  # app_rpt link-list text
+    assert not call.is_ended
+    await call.hangup()
