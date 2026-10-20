@@ -56,7 +56,7 @@ unchecked milestone.**
 - [x] M5  Media: voice full/mini frames, codecs ulaw/alaw/slin, DTMF, text, HTML/URL, control frames, quelch
 - [x] M6  Registration client + registrar server
 - [x] M7  Interop test harness against local Asterisk (scripted config, pytest marker `interop`)
-- [ ] M8  Transfers (TXREQ…), trunking (meta trunk rx/tx), video meta frames, DPREQ, MWI
+- [x] M8  Transfers (TXREQ…), trunking (meta trunk rx/tx), video meta frames, DPREQ, MWI
 - [ ] M9  AES-128 encryption (optional dep)
 - [ ] M10 Sync wrapper, jitter buffer
 - [ ] M11 Examples: client (dial/play/record), server (echo, IVR-ish, registrar), CLI
@@ -72,3 +72,4 @@ unchecked milestone.**
   Findings: ASL3 has autoload=no (setup loads app_echo/playtones/senddtmf/read/res_clioriginate);
   Asterisk keys live in /usr/share/asterisk/keys; Asterisk's forced jitter buffer holds DTMF
   until voice flows (not our bug); supermini trunk frames must not carry two entries of one call.
+- 2026-10-20: M8 done: native transfers (endpoint + server role; interop: our server transfers two Asterisk legs), video meta frames, DPREQ/DPREP, MWI hook. NOTE interop tests must only hang up IAX2/pyiax-* channels (never 'hangup all': kills app_rpt node channels).

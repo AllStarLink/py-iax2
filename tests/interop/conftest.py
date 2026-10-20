@@ -23,6 +23,14 @@ def ast(cmd: str) -> str:
     return r.stdout
 
 
+def hangup_test_channels() -> None:
+    """Hang up only the IAX2 channels created by these tests (never the node's own)."""
+    for line in ast("core show channels concise").splitlines():
+        name = line.split("!", 1)[0]
+        if name.startswith("IAX2/pyiax-"):
+            ast(f"channel request hangup {name}")
+
+
 def _asterisk_ready() -> str | None:
     try:
         out = ast("iax2 show users")

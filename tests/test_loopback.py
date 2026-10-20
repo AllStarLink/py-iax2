@@ -201,3 +201,111 @@ async def test_retransmit_then_timeout():
     finally:
         dead.close()
         await ep.close()
+
+
+async def test_native_transfer_three_endpoints():
+    """A and B call server S; S transfers; A and B then talk directly."""
+    srv = iax2.Endpoint("127.0.0.1", 0)
+    a = iax2.Endpoint("127.0.0.1", 0)
+    b = iax2.Endpoint("127.0.0.1", 0)
+    for e in (srv, a, b):
+        await e.start()
+    try:
+        async def answer():
+            c = await srv.accept_call(timeout=5)
+            await c.answer()
+            return c
+        t1 = asyncio.create_task(answer())
+        ca = await a.dial("127.0.0.1", "1", port=srv.port, timeout=5)
+        sa = await t1
+        t2 = asyncio.create_task(answer())
+        cb = await b.dial("127.0.0.1", "2", port=srv.port, timeout=5)
+        sb = await t2
+        srv.transfers.start_transfer(sa, sb)
+        await asyncio.wait_for(sa.wait_ended(), 5)
+        await asyncio.wait_for(sb.wait_ended(), 5)
+        assert sa.cause == "transferred"
+        await asyncio.sleep(0.2)
+        assert ca.peer_addr == ("127.0.0.1", b.port)
+        assert cb.peer_addr == ("127.0.0.1", a.port)
+        assert ca.peer_callno == cb.callno and cb.peer_callno == ca.callno
+        assert not ca.is_ended and not cb.is_ended
+        # media now flows directly A <-> B
+        pcm = struct.pack("<160h", *([500] * 160))
+        for _ in range(3):
+            ca.send_pcm(pcm)
+            await asyncio.sleep(0.02)
+        f = await cb.recv_audio(timeout=2)
+        assert f is not None and f.full
+        cb.send_text("direct")
+        while True:
+            ev = await ca.next_event(timeout=2)
+            assert ev is not None
+            if isinstance(ev, TextEvent):
+                assert ev.text == "direct"
+                break
+        await ca.hangup()
+        await asyncio.wait_for(cb.wait_ended(), 5)
+        assert not srv._sessions
+    finally:
+        for e in (a, b, srv):
+            await e.close()
+
+
+async def test_transfer_refused_when_disabled():
+    srv = iax2.Endpoint("127.0.0.1", 0)
+    a = iax2.Endpoint("127.0.0.1", 0)
+    b = iax2.Endpoint("127.0.0.1", 0)
+    for e in (srv, a, b):
+        await e.start()
+    a.transfers.enabled = False
+    try:
+        async def answer():
+            c = await srv.accept_call(timeout=5)
+            await c.answer()
+            return c
+        t1 = asyncio.create_task(answer())
+        ca = await a.dial("127.0.0.1", "1", port=srv.port, timeout=5)
+        sa = await t1
+        t2 = asyncio.create_task(answer())
+        await b.dial("127.0.0.1", "2", port=srv.port, timeout=5)
+        sb = await t2
+        srv.transfers.start_transfer(sa, sb)
+        await asyncio.sleep(0.5)
+        assert not sa.is_ended and not sb.is_ended
+        assert srv.transfers.state(sa) is srv.transfers.state(sb)
+        assert ca.peer_addr == ("127.0.0.1", srv.port)
+    finally:
+        for e in (a, b, srv):
+            await e.close()
+
+
+async def test_video_full_then_mini(pair):
+    server, client = pair
+    srv_task = asyncio.create_task(_answer_one(server))
+    call = await client.dial("127.0.0.1", "1", port=server.port, username="alice",
+                             secret="s3cret", timeout=5)
+    scall = await srv_task
+    got = []
+    scall.on_video = got.append
+    for i in range(3):
+        call.send_video(b"slice%d" % i, Format.H264, mark=(i == 2))
+        await asyncio.sleep(0.01)
+    await asyncio.sleep(0.2)
+    assert [v.payload for v in got] == [b"slice0", b"slice1", b"slice2"]
+    assert all(v.format == Format.H264 for v in got)
+    assert [v.mark for v in got] == [False, False, True]
+    await call.hangup()
+
+
+async def test_dpreq_dprep(pair):
+    server, client = pair
+    server.dialplan = lambda call, number: iax2.constants.DPStatus.EXISTS if number == "100" \
+        else iax2.constants.DPStatus.NONEXISTENT
+    srv_task = asyncio.create_task(_answer_one(server))
+    call = await client.dial("127.0.0.1", "1", port=server.port, username="alice",
+                             secret="s3cret", timeout=5)
+    await srv_task
+    assert await call.query_dialplan("100") & iax2.constants.DPStatus.EXISTS
+    assert await call.query_dialplan("999") & iax2.constants.DPStatus.NONEXISTENT
+    await call.hangup()

@@ -12,7 +12,7 @@ import iax2
 from iax2 import Cause, Format
 from iax2.events import ControlEvent, DTMFEvent, HangupEvent, Ringing, TextEvent
 
-from .conftest import ast
+from .conftest import ast, hangup_test_channels
 
 pytestmark = pytest.mark.interop
 
@@ -242,3 +242,39 @@ async def test_trunk_send_and_receive(asterisk):
         await call.hangup()
     finally:
         await ep.close()
+
+
+async def test_native_transfer_of_asterisk_calls(asterisk):
+    """We bridge two calls from Asterisk and transfer them onto each other.
+
+    Asterisk 22 never *starts* native transfers, but its endpoint side
+    (try_transfer/complete_transfer) must accept ours.
+    """
+    from .setup_asterisk import LIB_PORT
+
+    ep = iax2.Endpoint("127.0.0.1", LIB_PORT,
+                       users={"asterisk": iax2.Credentials(secret="outsecret")},
+                       allow_guest=False)
+    await ep.start()
+    try:
+        calls = []
+        for n in ("501", "502"):
+            asterisk(f"channel originate IAX2/pyiax-out/{n} extension 106@pyiax-test")
+            c = await ep.accept_call(timeout=10)
+            assert c is not None
+            await c.answer()
+            calls.append(c)
+        await asyncio.sleep(0.3)
+        ids = {c.peer_callno for c in calls}
+        ep.transfers.start_transfer(*calls)
+        for c in calls:
+            await asyncio.wait_for(c.wait_ended(), 5)
+            assert c.cause == "transferred"
+        await asyncio.sleep(0.5)
+        out = asterisk("iax2 show channels")
+        # each Asterisk leg now has the other leg as its remote call number
+        a, b = sorted(ids)
+        assert f"{a:05d}/{b:05d}" in out and f"{b:05d}/{a:05d}" in out
+    finally:
+        await ep.close()
+        hangup_test_channels()

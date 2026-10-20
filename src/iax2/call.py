@@ -317,7 +317,7 @@ class Call:
         self._tx_codec: Codec | None = None
         self._rx_codec: Codec | None = None
         self._rx_format = 0
-        self._dtmf_tasks: set[asyncio.Task[None]] = set()
+        self._dp_waiters: dict[str, asyncio.Future[int]] = {}
 
     # ------------------------------------------------------------ properties
 
@@ -911,6 +911,26 @@ class Call:
 
     def _iax_dial(self, frame: FullFrame, ies: IEs) -> None:
         self._emit(TransferRequest(self, ies.get(IE.CALLED_NUMBER, ""), None))
+
+    def _iax_dprep(self, frame: FullFrame, ies: IEs) -> None:
+        number = ies.get(IE.CALLED_NUMBER, "")
+        fut = self._dp_waiters.pop(number, None)
+        if fut is not None and not fut.done():
+            fut.set_result(int(ies.get(IE.DPSTATUS, 0)))
+
+    async def query_dialplan(self, number: str, timeout: float = 5.0) -> int:
+        """Ask the peer whether ``number`` exists in its dialplan (DPREQ/DPREP).
+
+        Returns:
+            The DPSTATUS bit mask (see :class:`~iax2.constants.DPStatus`).
+        """
+        self._require_active()
+        fut = self._dp_waiters.get(number)
+        if fut is None:
+            fut = asyncio.get_running_loop().create_future()
+            self._dp_waiters[number] = fut
+            self.session.send_command(IAXCommand.DPREQ, IEs().add(IE.CALLED_NUMBER, number))
+        return await asyncio.wait_for(asyncio.shield(fut), timeout)
 
     def _iax_dpreq(self, frame: FullFrame, ies: IEs) -> None:
         self.endpoint.dialplan_request(self, ies)

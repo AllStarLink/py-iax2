@@ -186,6 +186,7 @@ class Endpoint:
         self._transport: asyncio.DatagramTransport | None = None
         self._sessions: dict[int, Session] = {}
         self._by_peer: dict[tuple[Addr, int], Session] = {}
+        self._by_transfer: dict[tuple[Addr, int], Session] = {}
         self._recent: dict[int, float] = {}
         self._calls: set[Call] = set()
         self._incoming: asyncio.Queue[Call] = asyncio.Queue(cfg.max_incoming_queue)
@@ -311,6 +312,7 @@ class Endpoint:
         key = (session.addr, session.peer_callno)
         if self._by_peer.get(key) is session:
             del self._by_peer[key]
+        self.unindex_transfer(session)
 
     def rebind_peer_callno(self, session: Session, peer_callno: int) -> None:
         """Update the peer call number index for ``session``."""
@@ -320,6 +322,18 @@ class Endpoint:
         session.peer_callno = peer_callno
         if peer_callno:
             self._by_peer[(session.addr, peer_callno)] = session
+
+    def index_transfer(self, session: Session) -> None:
+        """Make ``session`` findable by its transfer peer's address and call number."""
+        if session.transfer_addr is not None:
+            self._by_transfer[(session.transfer_addr, session.transfer_callno)] = session
+
+    def unindex_transfer(self, session: Session) -> None:
+        """Remove ``session`` from the transfer-peer index."""
+        if session.transfer_addr is not None:
+            key = (session.transfer_addr, session.transfer_callno)
+            if self._by_transfer.get(key) is session:
+                del self._by_transfer[key]
 
     def rebind_address(self, session: Session, addr: Addr) -> None:
         """Move ``session`` to a new peer address (after a transfer)."""
@@ -389,7 +403,8 @@ class Endpoint:
                 wire_log.debug("RX %s:%s %s", addr[0], addr[1], frame.describe())
             self._handle_full(frame, addr, data)
         elif isinstance(frame, MiniFrame):
-            s = self._by_peer.get((addr, frame.source_call))
+            key = (addr, frame.source_call)
+            s = self._by_peer.get(key) or self._by_transfer.get(key)
             if s is not None:
                 if s.decryptor is not None:
                     s.handle_encrypted_mini(data)

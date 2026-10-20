@@ -205,6 +205,7 @@ class Session:
         # transfer state (used by Call)
         self.transfer_addr: Addr | None = None
         self.transfer_callno = 0
+        self.media_via_transfer = False  # media-only transfer (TXMEDIA) in effect
 
         self.destroyed = False
         self.error: str | None = None
@@ -405,10 +406,13 @@ class Session:
                 return None
             else:
                 data = MiniFrame(self.callno, fts, payload).to_bytes()
-            self._transmit_raw(data, self.addr)
+            maddr = self.transfer_addr if self.media_via_transfer and self.transfer_addr else self.addr
+            self._transmit_raw(data, maddr)
             self.stats.frames_sent += 1
             return None
 
+        if self.media_via_transfer and frame_type in (FrameType.VOICE, FrameType.VIDEO):
+            transfer, now, seqno = True, True, 0
         if seqno is None:
             seqno = self.oseqno
             self.oseqno = (self.oseqno + 1) & 0xFF
