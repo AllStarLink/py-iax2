@@ -1002,7 +1002,8 @@ class Call:
             # From now on the caller encrypts (starting with AUTHREP).
             from . import crypto
 
-            crypto.enable_callee(self.session, self._challenge, creds.secret.split(";"), enc)
+            crypto.enable_callee(self.session, self._challenge, (creds.secret or "").split(";"),
+                                 enc)
 
     def _on_accepted(self, fmt: int) -> None:
         self.format = fmt

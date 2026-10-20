@@ -17,14 +17,14 @@ import wave
 __all__ = ["read_wav", "resample", "rms", "silence", "tone", "write_wav"]
 
 
-def _samples(pcm: bytes) -> array.array:
+def _samples(pcm: bytes) -> array.array[int]:
     a = array.array("h", pcm[: len(pcm) & ~1])
     if sys.byteorder == "big":  # pragma: no cover
         a.byteswap()
     return a
 
 
-def _bytes(a: array.array) -> bytes:
+def _bytes(a: array.array[int]) -> bytes:
     if sys.byteorder == "big":  # pragma: no cover
         a = array.array("h", a)
         a.byteswap()

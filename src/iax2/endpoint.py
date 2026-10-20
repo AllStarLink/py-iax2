@@ -39,7 +39,6 @@ import logging
 import random
 import socket
 import time
-from collections import deque
 from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine, Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -51,8 +50,8 @@ from .codecs import available_formats
 from .constants import DEFAULT_PORT, IE, Cause, DPStatus, FrameType, IAXCommand
 from .exceptions import CallRejected, IAX2Error, TransportError
 from .formats import AUDIO_MASK, Format, best_format, iter_formats
+from .exceptions import FrameError
 from .frames import (
-    FrameError,
     FullFrame,
     MiniFrame,
     TrunkFrame,
@@ -178,8 +177,8 @@ class Endpoint:
             cfg.capability = available_formats() & AUDIO_MASK
         if cfg.prefs is None:
             order = [Format.ULAW, Format.ALAW, Format.SLIN16, Format.SLIN, Format.G722, Format.GSM]
-            cfg.prefs = [f for f in order if f & cfg.capability] + [
-                f for f in iter_formats(cfg.capability) if f not in order
+            cfg.prefs = [int(f) for f in order if f & cfg.capability] + [
+                int(f) for f in iter_formats(cfg.capability) if f not in order
             ]
         self.calltokens = CallTokenGenerator(cfg.calltoken_max_delay)
         self.clock: Callable[[], float] = time.monotonic

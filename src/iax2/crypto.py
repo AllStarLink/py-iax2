@@ -50,10 +50,10 @@ SUPPORTED = int(Encryption.AES128 | Encryption.KEYROTATE)
 def available() -> bool:
     """``True`` if the ``cryptography`` package is installed."""
     try:
-        import cryptography.hazmat.primitives.ciphers  # noqa: F401
+        import cryptography.hazmat.primitives.ciphers as _ciphers
     except ImportError:  # pragma: no cover - environment dependent
         return False
-    return True
+    return _ciphers is not None
 
 
 def _cipher(key: bytes) -> Any:
@@ -73,7 +73,8 @@ def encrypt_datagram(key: bytes, data: bytes) -> bytes:
     pad = bytearray(os.urandom(pad_len))
     pad[15] = (pad[15] & 0xF0) | (pad_len & 0x0F)
     enc = _cipher(key).encryptor()
-    return data[:clear] + enc.update(bytes(pad) + body) + enc.finalize()
+    out: bytes = data[:clear] + enc.update(bytes(pad) + body) + enc.finalize()
+    return out
 
 
 def decrypt_datagram(key: bytes, data: bytes) -> bytes | None:
@@ -84,7 +85,7 @@ def decrypt_datagram(key: bytes, data: bytes) -> bytes | None:
     if len(body) < 16 or len(body) % 16:
         return None
     dec = _cipher(key).decryptor()
-    pt = dec.update(body) + dec.finalize()
+    pt: bytes = dec.update(body) + dec.finalize()
     padding = 16 + (pt[15] & 0x0F)
     if len(data) < padding + hdr:
         return None
@@ -124,7 +125,8 @@ class CallCrypto:
         """Decrypt an incoming datagram, learning the key if necessary."""
         if self.rx_key is not None:
             return decrypt_datagram(self.rx_key, data)
-        from .frames import FrameError, FullFrame
+        from .exceptions import FrameError
+        from .frames import FullFrame
 
         for key in self.candidates:
             plain = decrypt_datagram(key, data)

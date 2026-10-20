@@ -10,9 +10,9 @@ import pytest
 
 import iax2
 from iax2 import Cause, Format
-from iax2.events import ControlEvent, DTMFEvent, HangupEvent, Ringing, TextEvent
+from iax2.events import ControlEvent, DTMFEvent, Ringing, TextEvent
 
-from .conftest import ast, hangup_test_channels
+from .conftest import hangup_test_channels
 
 pytestmark = pytest.mark.interop
 

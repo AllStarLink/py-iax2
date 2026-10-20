@@ -193,7 +193,8 @@ class FullFrame(Frame):
         """The IAX command for IAX frames, else ``None``."""
         if self.frame_type != FrameType.IAX:
             return None
-        return _named(self.subclass, IAXCommand)
+        cmd: IAXCommand | int = _named(self.subclass, IAXCommand)
+        return cmd
 
     @property
     def is_ack_like(self) -> bool:

@@ -386,3 +386,31 @@ async def test_playout_jitterbuffer(pair):
     assert ts == sorted(ts)
     assert scall.stats.voice_received >= 20
     await call.hangup()
+
+
+async def test_ipv6_loopback():
+    import socket
+
+    if not socket.has_ipv6:
+        pytest.skip("no IPv6")
+    server = iax2.Endpoint("::1", 0, users={"u": Credentials(secret="p")}, allow_guest=False)
+    client = iax2.Endpoint("::1", 0)
+    try:
+        await server.start()
+        await client.start()
+    except iax2.TransportError:
+        pytest.skip("IPv6 loopback unavailable")
+    try:
+        t = asyncio.create_task(_answer_one(server))
+        call = await client.dial("::1", "1", port=server.port, username="u", secret="p",
+                                 timeout=5)
+        scall = await t
+        assert scall.peer_addr == ("::1", client.port)
+        server.enable_registrar()
+        reg = await client.register("::1", "u", "p", port=server.port)
+        assert reg.apparent_addr == ("::1", client.port)
+        await reg.stop()
+        await call.hangup()
+    finally:
+        await client.close()
+        await server.close()
