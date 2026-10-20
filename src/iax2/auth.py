@@ -62,10 +62,10 @@ __all__ = [
 def new_challenge() -> str:
     """Return a fresh challenge string.
 
-    Asterisk uses the decimal text of a random 31-bit integer; we do the same
-    so challenges look identical on the wire.
+    Asterisk prints a random 31-bit integer into a 10-byte buffer, so the
+    challenge is at most 9 decimal digits; we generate the same shape.
     """
-    return str(secrets.randbelow(2**31))
+    return str(secrets.randbelow(10**9))
 
 
 def md5_digest(challenge: str, secret: str) -> bytes:

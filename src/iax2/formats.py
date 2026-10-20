@@ -255,47 +255,67 @@ def decode_codec_prefs(prefs: str) -> list[int]:
     return out
 
 
+def _first_pref(prefs: Iterable[int], mask: int) -> int:
+    for fmt in prefs:
+        if fmt & mask & AUDIO_MASK:
+            return int(fmt)
+    return 0
+
+
 def choose_format(
-    offered_capability: int,
-    offered_format: int,
+    peer_capability: int,
+    peer_format: int,
     our_capability: int,
     *,
     our_prefs: Iterable[int] = (),
-    their_prefs: Iterable[int] = (),
-    prefer_remote: bool = True,
+    peer_prefs: Iterable[int] = (),
+    caller_first: bool = False,
+    use_prefs: bool = True,
+    requested_only: bool = False,
 ) -> int:
-    """Choose the audio format to use for a call, the way Asterisk does.
+    """Choose the audio format for an incoming call exactly as Asterisk does.
 
-    This follows the answering side of ``socket_process_helper()`` in
-    chan_iax2.c for an incoming NEW:
+    Mirrors the NEW / AUTHREP handling in ``socket_process_helper()``:
 
-    1. If the caller's *desired* format is one we support, use it.
-    2. Otherwise, walk a preference list over the joint capability —
-       the caller's prefs if ``prefer_remote`` (Asterisk's ``codecpriority``
-       ``caller``, the default) else ours — and take the first match.
-    3. Otherwise fall back to Asterisk's built-in ranking over the joint
-       capability.
+    * With preferences (the default, Asterisk ``codecpriority=host``): take the
+      first of *our* preferences present in the joint capability. If
+      ``caller_first`` (``codecpriority=caller``) and the caller sent a
+      CODEC_PREFS list, the caller's list is tried first instead. If that
+      fails, the other list is tried; if the caller sent no list, Asterisk's
+      built-in ranking (:func:`best_format`) is used.
+    * Without preferences (``codecpriority=disabled``): use the caller's
+      requested ``peer_format`` if we support it, else the best joint codec.
+    * ``requested_only`` (``codecpriority=reqonly``): only the requested
+      format is acceptable.
 
     Args:
-        offered_capability: Peer's CAPABILITY bit mask.
-        offered_format: Peer's desired FORMAT (single bit or 0).
-        our_capability: Our capability bit mask.
-        our_prefs: Our ordered preference list.
-        their_prefs: Peer's ordered preference list (from CODEC_PREFS).
-        prefer_remote: Whether the caller's preferences win.
+        peer_capability: Caller's CAPABILITY mask.
+        peer_format: Caller's requested FORMAT.
+        our_capability: Our capability mask.
+        our_prefs: Our ordered preference list (Asterisk ``allow=`` order).
+        peer_prefs: Caller's ordered list from the CODEC_PREFS IE.
+        caller_first: Give the caller's preferences priority.
+        use_prefs: ``False`` to ignore preference lists altogether.
+        requested_only: Accept only ``peer_format``.
 
     Returns:
-        The chosen single format bit, or ``0`` if there is no common audio codec.
+        A single format bit, or ``0`` if no common audio codec exists (the
+        call should be rejected with cause BEARERCAPABILITY_NOTAVAIL).
     """
-    joint = offered_capability & our_capability & AUDIO_MASK
-    if offered_format and (offered_format & our_capability & AUDIO_MASK) == offered_format:
-        if offered_format.bit_count() == 1:
-            return int(offered_format)
+    our_prefs = list(our_prefs)
+    peer_prefs = list(peer_prefs)
+    joint = peer_capability & our_capability & AUDIO_MASK
+    if requested_only:
+        fmt = peer_format & our_capability & AUDIO_MASK
+        return best_format(fmt) if fmt else 0
+    if not use_prefs:
+        fmt = peer_format & our_capability & AUDIO_MASK
+        if fmt and fmt.bit_count() == 1:
+            return int(fmt)
+        return best_format(fmt or joint)
     if not joint:
         return 0
-    first, second = (their_prefs, our_prefs) if prefer_remote else (our_prefs, their_prefs)
-    for prefs in (first, second):
-        for fmt in prefs:
-            if fmt & joint:
-                return int(fmt)
-    return best_format(joint)
+    if peer_prefs:
+        first, second = (peer_prefs, our_prefs) if caller_first else (our_prefs, peer_prefs)
+        return _first_pref(first, joint) or _first_pref(second, joint) or best_format(joint)
+    return _first_pref(our_prefs, joint) or best_format(joint)

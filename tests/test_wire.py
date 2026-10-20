@@ -78,12 +78,20 @@ def test_best_and_choose():
     assert best_format(Format.GSM | Format.SLIN | Format.ALAW) == Format.ALAW
     assert best_format(Format.H264) == 0
     caps = Format.ULAW | Format.GSM | Format.ALAW
-    # desired format supported -> taken
-    assert choose_format(caps, Format.GSM, caps) == Format.GSM
-    # desired not supported -> caller prefs
-    assert choose_format(caps, Format.G729, caps, their_prefs=[Format.ALAW]) == Format.ALAW
-    # no prefs -> best ranking
-    assert choose_format(caps, 0, Format.GSM | Format.ULAW) == Format.ULAW
+    # host priority: our prefs win over the requested format
+    assert choose_format(caps, Format.GSM, caps, our_prefs=[Format.ALAW, Format.GSM]) == Format.ALAW
+    # caller priority with caller prefs
+    assert (
+        choose_format(caps, 0, caps, our_prefs=[Format.ALAW], peer_prefs=[Format.GSM], caller_first=True)
+        == Format.GSM
+    )
+    # our prefs miss -> caller prefs -> best
+    assert choose_format(caps, 0, caps, our_prefs=[Format.G729], peer_prefs=[Format.GSM]) == Format.GSM
+    assert choose_format(caps, 0, caps, our_prefs=[Format.G729]) == Format.ULAW
+    # prefs disabled: requested format if supported
+    assert choose_format(caps, Format.GSM, caps, use_prefs=False) == Format.GSM
+    assert choose_format(caps, Format.G729, caps, use_prefs=False) == Format.ULAW
+    assert choose_format(caps, Format.G729, caps, requested_only=True) == 0
     assert choose_format(Format.G729, 0, Format.ULAW) == 0
 
 

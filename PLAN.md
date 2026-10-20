@@ -51,10 +51,10 @@ unchecked milestone.**
 - [x] M0  Clean skeleton: pyproject fix, package layout, tooling (ruff/mypy/pytest config)
 - [x] M1  Wire format: constants, formats, IEs, frames + exhaustive unit tests
 - [x] M2  Auth (plaintext/MD5/RSA), call tokens
-- [ ] M3  Transport + reliability (ACK/retransmit/VNAK/timestamps), POKE/PING/LAGRQ
-- [ ] M4  Calls: outbound NEW→ACCEPT→ANSWER, inbound, hangup/reject, auth flows
-- [ ] M5  Media: voice full/mini frames, codecs ulaw/alaw/slin, DTMF, text, HTML/URL, control frames, quelch
-- [ ] M6  Registration client + registrar server
+- [x] M3  Transport + reliability (ACK/retransmit/VNAK/timestamps), POKE/PING/LAGRQ
+- [x] M4  Calls: outbound NEW→ACCEPT→ANSWER, inbound, hangup/reject, auth flows
+- [x] M5  Media: voice full/mini frames, codecs ulaw/alaw/slin, DTMF, text, HTML/URL, control frames, quelch
+- [x] M6  Registration client + registrar server
 - [ ] M7  Interop test harness against local Asterisk (scripted config, pytest marker `interop`)
 - [ ] M8  Transfers (TXREQ…), trunking (meta trunk rx/tx), video meta frames, DPREQ, MWI
 - [ ] M9  AES-128 encryption (optional dep)
@@ -66,3 +66,4 @@ unchecked milestone.**
 ## Progress log
 
 - 2026-10-19: Plan written; Asterisk 22.10.1 source + RFC fetched.
+- 2026-10-20: M3–M6 done (session/reliability, calls, media+codecs, registration) with loopback tests. Transfer/trunk implemented but untested; crypto is a stub. Next: M7 interop vs local Asterisk.

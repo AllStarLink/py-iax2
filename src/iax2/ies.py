@@ -286,6 +286,8 @@ def encode_value(ie: int, value: Any) -> bytes:
             if isinstance(value, int) and not isinstance(value, bool):
                 return struct.pack("!I", value)
             return struct.pack("!I", datetime_to_ie(value))
+        if isinstance(value, str):
+            return value.encode("utf-8", "surrogateescape")
         return bytes(value)
     except (struct.error, TypeError, ValueError) as exc:
         raise IEError(f"cannot encode {value!r} for {_ie_name(ie)}: {exc}") from None

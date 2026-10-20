@@ -32,7 +32,7 @@ def keypair():
 
 def test_challenge_format():
     c = new_challenge()
-    assert c.isdigit() and int(c) < 2**31
+    assert c.isdigit() and len(c) <= 9
 
 
 def test_md5_matches_known_value():
