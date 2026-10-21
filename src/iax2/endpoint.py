@@ -195,6 +195,7 @@ class Endpoint:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._transport: asyncio.DatagramTransport | None = None
         self._sessions: dict[int, Session] = {}
+        self._ipv6 = False
         self._by_peer: dict[tuple[Addr, int], Session] = {}
         self._by_transfer: dict[tuple[Addr, int], Session] = {}
         self._recent: dict[int, float] = {}
@@ -248,6 +249,8 @@ class Endpoint:
             raise TransportError(f"cannot bind {self.host}:{self.port}: {exc}") from exc
         self._transport = transport
         self.host, self.port = transport.get_extra_info("sockname")[:2]
+        sock = transport.get_extra_info("socket")
+        self._ipv6 = sock is not None and sock.family == socket.AF_INET6
         log.info("IAX2 endpoint listening on %s:%s", self.host, self.port)
         return self
 
@@ -385,7 +388,8 @@ class Endpoint:
             except FrameError:
                 desc = f"<{len(data)} bytes>"
             wire_log.debug("TX %s:%s %s", addr[0], addr[1], desc)
-        self._transport.sendto(data, addr)
+        # Windows' proactor parses a 2-tuple as IPv4; IPv6 needs the 4-tuple form.
+        self._transport.sendto(data, (addr[0], addr[1], 0, 0) if self._ipv6 else addr)
 
     def send_apathetic(
         self, addr: Addr, dest_call: int, command: int, ts: int, iseqno: int, ies: IEs | None = None
@@ -864,7 +868,7 @@ class Endpoint:
         if not infos:
             raise TransportError(f"cannot resolve {host}")
         sa = infos[0][4]
-        return (sa[0], sa[1])
+        return (str(sa[0]), int(sa[1]))
 
     # ----------------------------------------------------------------- poke
 
