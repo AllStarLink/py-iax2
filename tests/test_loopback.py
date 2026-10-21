@@ -231,7 +231,7 @@ async def test_retransmit_then_timeout():
 
 async def test_native_transfer_three_endpoints():
     """A and B call server S; S transfers; A and B then talk directly."""
-    srv = iax2.Endpoint("127.0.0.1", 0)
+    srv = iax2.Endpoint("127.0.0.1", 0, allow_guest=True)
     a = iax2.Endpoint("127.0.0.1", 0)
     b = iax2.Endpoint("127.0.0.1", 0)
     for e in (srv, a, b):
@@ -281,7 +281,7 @@ async def test_native_transfer_three_endpoints():
 
 
 async def test_transfer_refused_when_disabled():
-    srv = iax2.Endpoint("127.0.0.1", 0)
+    srv = iax2.Endpoint("127.0.0.1", 0, allow_guest=True)
     a = iax2.Endpoint("127.0.0.1", 0)
     b = iax2.Endpoint("127.0.0.1", 0)
     for e in (srv, a, b):

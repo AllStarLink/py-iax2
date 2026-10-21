@@ -40,4 +40,6 @@ First release: a complete rewrite of the earlier skeleton.
 
 ### Changed
 
+- `allow_guest` now defaults to `False`: callers without a known username are
+  rejected unless you opt in. `iax2-tool serve` needs `--guest` to accept them.
 - Licensed under GPL-2.0-only, matching Asterisk.

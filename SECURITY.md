@@ -31,8 +31,9 @@ misconfiguration of the application using the library.
 
 ## Hardening an internet-facing endpoint
 
-* Set `allow_guest=False` unless you really want unauthenticated callers;
-  the default (`True`) matches a permissive Asterisk `guest` user.
+* Leave `allow_guest=False` (the default) unless you really want
+  unauthenticated callers; `True` behaves like a permissive Asterisk `guest`
+  user.
 * Keep `require_calltoken=True` (the default). Call tokens stop spoofed-source
   floods from allocating call numbers.
 * Lower `max_callnumbers_per_ip` (default 2048, as Asterisk) if you expect few

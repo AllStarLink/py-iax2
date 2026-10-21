@@ -180,6 +180,9 @@ async def cmd_serve(args: argparse.Namespace) -> int:
     for spec in args.user or []:
         name, _, secret = spec.partition(":")
         users[name] = Credentials(username=name, secret=secret or None)
+    if not users and not args.guest:
+        print("serve: give -u NAME[:SECRET] and/or --guest", file=sys.stderr)
+        return 2
     if args.play:
         args.mode = "play"
     elif args.tone:
@@ -189,7 +192,7 @@ async def cmd_serve(args: argparse.Namespace) -> int:
     ep = _endpoint(
         args,
         users=users,
-        allow_guest=not users or args.guest,
+        allow_guest=args.guest,
         require_calltoken=not args.no_calltoken,
     )
     async with ep:
@@ -292,9 +295,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--user",
         action="append",
         metavar="NAME[:SECRET]",
-        help="accepted user (repeatable); default: anyone",
+        help="accepted user (repeatable)",
     )
-    s.add_argument("--guest", action="store_true", help="also accept unknown callers")
+    s.add_argument("--guest", action="store_true", help="accept callers without a known username (unauthenticated)")
     s.add_argument("--play", metavar="WAV", help="play a WAV file to callers")
     s.add_argument("--tone", type=float, metavar="HZ", help="play a tone to callers")
     s.add_argument("--ring", type=float, default=0, metavar="SEC", help="ring before answer")

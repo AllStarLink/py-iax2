@@ -39,6 +39,9 @@ serve
 
 Answers every call: echoes audio back by default, or plays a file/tone.
 
+Give at least one ``-u`` user or ``--guest``; ``--guest`` accepts callers
+without a known username, with no authentication.
+
 register
 --------
 

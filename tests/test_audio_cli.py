@@ -34,7 +34,7 @@ def test_cli_parser_hostport():
 
 def test_cli_poke_and_call(capsys):
     async def run():
-        server = iax2.Endpoint("127.0.0.1", 0)
+        server = iax2.Endpoint("127.0.0.1", 0, allow_guest=True)
         await server.start()
         server.on_call = lambda c: c.answer()
         try:

@@ -18,10 +18,10 @@ Example — a client::
 
     asyncio.run(main())
 
-Example — a server that answers everything with an echo::
+Example — a server that answers anyone (no login) with an echo::
 
     async def main():
-        async with iax2.Endpoint(port=4569) as ep:
+        async with iax2.Endpoint(port=4569, allow_guest=True) as ep:
             async for call in ep.incoming():
                 asyncio.create_task(echo(call))
 
@@ -95,7 +95,8 @@ class EndpointConfig:
         calltoken_max_delay: Seconds a call token remains valid.
         users: ``{username: Credentials}`` used by the default authenticator.
         allow_guest: Default authenticator: let callers without a known
-            username in without authentication.
+            username in without authentication (Asterisk ``guest`` user).
+            Off by default; unknown callers are rejected.
         authenticator: Custom policy ``(info, addr) -> Credentials | True |
             None | False`` (may be async). ``Credentials`` require the caller to
             authenticate with them; ``True``/``None`` admit without
@@ -124,7 +125,7 @@ class EndpointConfig:
     require_calltoken: bool = True
     calltoken_max_delay: int = 10
     users: dict[str, Credentials] = field(default_factory=dict)
-    allow_guest: bool = True
+    allow_guest: bool = False
     authenticator: Authenticator | None = None
     auto_accept: bool = True
     delay_reject: bool = False
@@ -194,8 +195,8 @@ class Endpoint:
         self.clock: Callable[[], float] = time.monotonic
         self._loop: asyncio.AbstractEventLoop | None = None
         self._transport: asyncio.DatagramTransport | None = None
-        self._sessions: dict[int, Session] = {}
         self._ipv6 = False
+        self._sessions: dict[int, Session] = {}
         self._by_peer: dict[tuple[Addr, int], Session] = {}
         self._by_transfer: dict[tuple[Addr, int], Session] = {}
         self._recent: dict[int, float] = {}
@@ -248,9 +249,9 @@ class Endpoint:
         except OSError as exc:
             raise TransportError(f"cannot bind {self.host}:{self.port}: {exc}") from exc
         self._transport = transport
-        self.host, self.port = transport.get_extra_info("sockname")[:2]
         sock = transport.get_extra_info("socket")
         self._ipv6 = sock is not None and sock.family == socket.AF_INET6
+        self.host, self.port = transport.get_extra_info("sockname")[:2]
         log.info("IAX2 endpoint listening on %s:%s", self.host, self.port)
         return self
 
