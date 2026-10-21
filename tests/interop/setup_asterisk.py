@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: GPL-2.0-only
 """Configure a local Asterisk for the py-iax2 interoperability tests.
 
 Writes ``/etc/asterisk/custom/iax.conf`` and ``custom/extensions.conf``

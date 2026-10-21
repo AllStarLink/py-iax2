@@ -8,6 +8,7 @@ import struct
 import pytest
 
 import iax2
+import iax2.crypto
 from iax2 import Cause, Credentials, Format
 from iax2.events import Answered, DTMFEvent, HangupEvent, Ringing, TextEvent
 
@@ -343,6 +344,7 @@ async def test_dpreq_dprep(pair):
     await call.hangup()
 
 
+@pytest.mark.skipif(not iax2.crypto.available(), reason="needs the 'crypto' extra")
 async def test_encrypted_call_and_key_rotation():
     enc = iax2.Encryption.AES128 | iax2.Encryption.KEYROTATE
     server = iax2.Endpoint(

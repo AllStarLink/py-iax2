@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: GPL-2.0-only
 # Copyright (C) 2026 Jason D. McCormick
 """The :class:`Endpoint` — the main entry point of the library.
 
@@ -77,6 +77,7 @@ Authenticator = Callable[[CallInfo, Addr], AuthDecision | Awaitable[AuthDecision
 
 _TRUNK_CALL_START = 16384
 _MIN_REUSE = 60.0
+_WARN_INTERVAL = 10.0  # seconds between repeats of a rate-limited warning
 
 
 @dataclass
@@ -106,6 +107,9 @@ class EndpointConfig:
             ``delayreject``).
         timing: Protocol timer settings.
         max_incoming_queue: Unclaimed incoming calls kept for :meth:`Endpoint.incoming`.
+        max_callnumbers_per_ip: Most peer-initiated sessions (calls and
+            registrations) one IP address may hold at once (Asterisk
+            ``maxcallnumbers``). Further NEW/REGREQ are rejected.
         encryption: Encryption methods we offer/accept (see :mod:`iax2.crypto`).
         force_encryption: Refuse calls that do not negotiate encryption.
         trunk_peers: Addresses to which outgoing voice is sent in trunk frames.
@@ -126,6 +130,7 @@ class EndpointConfig:
     delay_reject: bool = False
     timing: Timing = field(default_factory=Timing)
     max_incoming_queue: int = 64
+    max_callnumbers_per_ip: int = 2048
     encryption: int = 0
     force_encryption: bool = False
     trunk_peers: set[Addr] = field(default_factory=set)
@@ -193,6 +198,9 @@ class Endpoint:
         self._by_peer: dict[tuple[Addr, int], Session] = {}
         self._by_transfer: dict[tuple[Addr, int], Session] = {}
         self._recent: dict[int, float] = {}
+        self._inbound_ip: dict[int, str] = {}  # callno -> peer IP, peer-initiated sessions
+        self._ip_counts: dict[str, int] = {}
+        self._warned: dict[str, tuple[float, int]] = {}  # msg -> (last logged, suppressed)
         self._calls: set[Call] = set()
         self._incoming: asyncio.Queue[Call] = asyncio.Queue(cfg.max_incoming_queue)
         self._tasks: set[asyncio.Task[Any]] = set()
@@ -322,6 +330,13 @@ class Endpoint:
         if self._sessions.get(session.callno) is session:
             del self._sessions[session.callno]
             self._recent[session.callno] = self.clock()
+            ip = self._inbound_ip.pop(session.callno, None)
+            if ip is not None:
+                left = self._ip_counts[ip] - 1
+                if left:
+                    self._ip_counts[ip] = left
+                else:
+                    del self._ip_counts[ip]
         key = (session.addr, session.peer_callno)
         if self._by_peer.get(key) is session:
             del self._by_peer[key]
@@ -492,9 +507,11 @@ class Endpoint:
             try:
                 ies = frame.ies
             except FrameError:
-                log.warning("undecodable %s from %s", frame.describe(), addr)
+                self._warn_limited("undecodable %s from %s", frame.describe(), addr)
                 return
             if not self._check_calltoken(frame, ies, addr):
+                return
+            if cmd != IAXCommand.FWDOWNL and not self._admit_peer(frame, addr):
                 return
             if cmd == IAXCommand.NEW:
                 self._new_incoming_call(frame, ies, addr)
@@ -511,7 +528,9 @@ class Endpoint:
                         .add(IE.CAUSECODE, int(Cause.FACILITY_REJECTED)),
                     )
                     return
-                s = self.new_session(addr, None, peer_callno=frame.source_call)
+                s = self._new_peer_session(frame, addr)
+                if s is None:
+                    return
                 self.registrar.attach(s)
                 s.handle_full(frame, addr)
             else:  # FWDOWNL: firmware download is not supported
@@ -525,6 +544,52 @@ class Endpoint:
         ):
             log.debug("frame for unknown call from %s: %s", addr, frame.describe())
             self.send_inval(addr, frame.dest_call, frame.source_call)
+
+    def _warn_limited(self, msg: str, *args: Any) -> None:
+        """Log a warning about unauthenticated traffic, at most once per
+        :data:`_WARN_INTERVAL` seconds per message, so floods cannot flood the log."""
+        now = self.clock()
+        last, suppressed = self._warned.get(msg, (-_WARN_INTERVAL, 0))
+        if now - last < _WARN_INTERVAL:
+            self._warned[msg] = (last, suppressed + 1)
+            return
+        self._warned[msg] = (now, 0)
+        if suppressed:
+            msg += f" ({suppressed} similar messages suppressed)"
+        log.warning(msg, *args)
+
+    def _admit_peer(self, frame: FullFrame, addr: Addr) -> bool:
+        """Enforce the per-IP session limit and call-number availability."""
+        if self._ip_counts.get(addr[0], 0) < self.config.max_callnumbers_per_ip:
+            return True
+        self._warn_limited("%s: maximum call numbers reached for this IP; rejecting", addr[0])
+        self._reject_congestion(frame, addr)
+        return False
+
+    def _reject_congestion(self, frame: FullFrame, addr: Addr) -> None:
+        cmd = (
+            IAXCommand.REGREJ
+            if frame.subclass in (IAXCommand.REGREQ, IAXCommand.REGREL)
+            else IAXCommand.REJECT
+        )
+        ies = IEs().add(IE.CAUSE, "Call number limit reached")
+        ies.add(IE.CAUSECODE, int(Cause.SWITCH_CONGESTION))
+        self.send_apathetic(addr, frame.source_call, cmd, frame.timestamp, frame.iseqno + 1, ies)
+
+    def _new_peer_session(self, frame: FullFrame, addr: Addr) -> Session | None:
+        """Create a session for a peer-initiated NEW/REGREQ, or reject if out of call numbers."""
+        try:
+            s = self.new_session(addr, None, peer_callno=frame.source_call)
+        except IAX2Error:
+            self._warn_limited(
+                "no free call numbers; rejecting %s from %s:%s", frame.describe(), *addr
+            )
+            self._reject_congestion(frame, addr)
+            return None
+        ip = addr[0]
+        self._inbound_ip[s.callno] = ip
+        self._ip_counts[ip] = self._ip_counts.get(ip, 0) + 1
+        return s
 
     def _check_calltoken(self, frame: FullFrame, ies: IEs, addr: Addr) -> bool:
         """Asterisk ``handle_call_token``: returns ``True`` to proceed."""
@@ -543,11 +608,11 @@ class Endpoint:
         if token is not None:
             if self.calltokens.validate(token, addr[0], addr[1]):
                 return True
-            log.warning("%s:%s failed call token validation", *addr)
+            self._warn_limited("%s:%s failed call token validation", *addr)
         elif not self.config.require_calltoken:
             return True
         else:
-            log.warning("call from %s:%s rejected: call token required", *addr)
+            self._warn_limited("call from %s:%s rejected: call token required", *addr)
         cmd = (
             IAXCommand.REGREJ
             if frame.subclass in (IAXCommand.REGREQ, IAXCommand.REGREL)
@@ -567,7 +632,9 @@ class Endpoint:
 
     def _new_incoming_call(self, frame: FullFrame, ies: IEs, addr: Addr) -> None:
         info = CallInfo.from_ies(ies)
-        session = self.new_session(addr, None, peer_callno=frame.source_call)
+        session = self._new_peer_session(frame, addr)
+        if session is None:
+            return
         call = Call(
             self,
             session,

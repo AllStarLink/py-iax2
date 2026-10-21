@@ -83,3 +83,21 @@ unchecked milestone.**
   Release prep: PyPI name `iax2` unclaimed; sdist/wheel build + `twine check --strict` pass; py.typed shipped.
   Tests: 69 unit + 23 interop pass (before and after). Remaining before an actual release (owner's call):
   bump 0.1.0.dev0 -> 0.1.0, CHANGELOG date, tag, `twine upload`.
+- 2026-10-21 (owner decisions after final pass):
+  - Licence changed to GPL-2.0-only (match Asterisk): LICENSE, SPDX headers, pyproject, README, debian/copyright.
+  - Hostile traffic: tests/test_robustness.py (parser fuzz, endpoint garbage, fuzzed in-sequence signalling
+    on live calls, NEW/REGREQ floods). Added EndpointConfig.max_callnumbers_per_ip (2048, Asterisk default),
+    clean REJECT when out of call numbers, rate-limited warnings for unauthenticated traffic.
+  - app_rpt audit: nothing ASL-specific affects generic IAX2. RADIO_KEY/UNKEY are standard Asterisk control
+    frames sent only on request; APPARENT_ADDR decode accepts both byte orders; defaults mirror Asterisk.
+  - CI: .github/workflows/ci.yml (ruff, mypy --strict, pytest 3.11-3.13 + macOS/Windows on 3.13, no-crypto job,
+    sphinx -W, build + twine check). macOS/Windows have never been run: first CI run is the real test.
+  - SECURITY.md, CONTRIBUTING.md, README API-stability policy.
+  - Deferred by owner: PyPI trusted publishing / RTD / coverage (#7), Debian archive (ITP/sponsor).
+
+## TODO
+
+- [ ] Real-network testing (owner's connectivity limited 2026-10-21): packet loss/jitter/reorder via
+      `tc netem`, NAT traversal, long calls (mini-frame 16-bit ts wrap every ~65 s; 32-bit ms wrap ~49 days),
+      many concurrent calls / pure-Python codec CPU cost.
+- [ ] First GitHub Actions run: check macOS/Windows jobs (never tested).

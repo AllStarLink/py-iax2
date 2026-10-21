@@ -32,3 +32,12 @@ First release: a complete rewrite of the earlier skeleton.
 - Sphinx documentation, unit/loopback tests and an Asterisk interoperability
   test suite.
 - Debian packaging.
+- Protection against hostile traffic: per-IP call-number limit
+  (`EndpointConfig.max_callnumbers_per_ip`, default 2048 as in Asterisk),
+  clean rejection when call numbers run out, rate-limited warnings for
+  unauthenticated traffic, and fuzz/flood tests.
+- GitHub Actions CI, `SECURITY.md` and `CONTRIBUTING.md`.
+
+### Changed
+
+- Licensed under GPL-2.0-only, matching Asterisk.

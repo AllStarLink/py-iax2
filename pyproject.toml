@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Pure-Python asyncio implementation of the IAX2 protocol (RFC 5456), interoperable with Asterisk."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "AGPL-3.0-or-later"
+license = "GPL-2.0-only"
 license-files = ["LICENSE"]
 authors = [{ name = "Jason D. McCormick", email = "jason@mfamily.org" }]
 keywords = ["iax", "iax2", "voip", "asterisk", "allstarlink", "telephony", "rfc5456"]

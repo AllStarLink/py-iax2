@@ -87,6 +87,23 @@ sudo python3 tests/interop/setup_asterisk.py    # configure a *test* Asterisk
 pytest -m interop tests/interop                 # interoperability tests
 ```
 
+## Versioning and API stability
+
+py-iax2 follows [Semantic Versioning](https://semver.org/). While the version
+is 0.x, minor releases (0.1 → 0.2) may change the public API; such changes are
+listed in `CHANGELOG.md`, and where practical the old API keeps working with a
+`DeprecationWarning` for at least one minor release. Patch releases (0.1.0 →
+0.1.1) are bug fixes only. The public API is everything exported from `iax2`
+and documented in the API reference; names starting with `_` and the
+`iax2.session` module (other than the `SessionStats` returned by `Call.stats`)
+are internal. From 1.0 onward, breaking changes only
+happen in major releases.
+
+## Contributing and security
+
+See [CONTRIBUTING.md](https://github.com/AllStarLink/py-iax2/blob/main/CONTRIBUTING.md)
+and, for vulnerabilities, [SECURITY.md](https://github.com/AllStarLink/py-iax2/blob/main/SECURITY.md).
+
 ## License
 
-AGPL-3.0-or-later. Copyright © 2026 Jason D. McCormick.
+GPL-2.0-only (matching Asterisk). Copyright © 2026 Jason D. McCormick.
