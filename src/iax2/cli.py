@@ -297,7 +297,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME[:SECRET]",
         help="accepted user (repeatable)",
     )
-    s.add_argument("--guest", action="store_true", help="accept callers without a known username (unauthenticated)")
+    s.add_argument(
+        "--guest",
+        action="store_true",
+        help="accept callers without a known username (unauthenticated)",
+    )
     s.add_argument("--play", metavar="WAV", help="play a WAV file to callers")
     s.add_argument("--tone", type=float, metavar="HZ", help="play a tone to callers")
     s.add_argument("--ring", type=float, default=0, metavar="SEC", help="ring before answer")
