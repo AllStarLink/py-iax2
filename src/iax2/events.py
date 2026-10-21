@@ -26,8 +26,8 @@ __all__ = [
     "ControlEvent",
     "DTMFEvent",
     "FormatChanged",
-    "HangupEvent",
     "HTMLEvent",
+    "HangupEvent",
     "ImageEvent",
     "Progress",
     "QuelchEvent",
@@ -240,7 +240,7 @@ class AudioFrame:
         if self.codec is not None:
             try:
                 return self.codec.samples(self.payload)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 return None
         return None
 

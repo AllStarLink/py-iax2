@@ -39,8 +39,11 @@ async def main() -> None:
 
     async with iax2.Endpoint(args.host, args.port, users=users, allow_guest=not users) as ep:
         print(f"echo server on {ep.host}:{ep.port}")
+        tasks: set[asyncio.Task[None]] = set()  # keep strong refs until each call ends
         async for call in ep.incoming():
-            asyncio.create_task(handle(call))
+            task = asyncio.create_task(handle(call))
+            tasks.add(task)
+            task.add_done_callback(tasks.discard)
 
 
 if __name__ == "__main__":

@@ -228,8 +228,13 @@ class SyncEndpoint:
     Accepts the same arguments. The socket is bound on construction.
     """
 
-    def __init__(self, host: str = "0.0.0.0", port: int = DEFAULT_PORT,
-                 config: EndpointConfig | None = None, **overrides: Any) -> None:
+    def __init__(
+        self,
+        host: str = "0.0.0.0",
+        port: int = DEFAULT_PORT,
+        config: EndpointConfig | None = None,
+        **overrides: Any,
+    ) -> None:
         self._lt = _LoopThread()
         try:
             self.endpoint: Endpoint = self._lt.run(self._create(host, port, config, overrides))
@@ -238,8 +243,9 @@ class SyncEndpoint:
             raise
 
     @staticmethod
-    async def _create(host: str, port: int, config: EndpointConfig | None,
-                      overrides: dict[str, Any]) -> Endpoint:
+    async def _create(
+        host: str, port: int, config: EndpointConfig | None, overrides: dict[str, Any]
+    ) -> Endpoint:
         return await Endpoint(host, port, config, **overrides).start()
 
     @property
@@ -261,8 +267,9 @@ class SyncEndpoint:
         call = self._lt.run(self.endpoint.accept_call(timeout))
         return SyncCall(call, self._lt) if call else None
 
-    def register(self, host: str, username: str, secret: str | None = None,
-                 **kw: Any) -> Registration:
+    def register(
+        self, host: str, username: str, secret: str | None = None, **kw: Any
+    ) -> Registration:
         """Register with a server; see :meth:`Endpoint.register`."""
         return self._lt.run(self.endpoint.register(host, username, secret, **kw))
 

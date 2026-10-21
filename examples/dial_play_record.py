@@ -34,9 +34,16 @@ async def main() -> None:
 
     async with iax2.Endpoint(port=0) as ep:
         # dial() returns once the call is answered (raises CallRejected otherwise)
-        call = await ep.dial(args.host, args.exten, port=args.port, context=args.context,
-                             username=args.user, secret=args.secret,
-                             caller_number="1234", caller_name="py-iax2 example")
+        call = await ep.dial(
+            args.host,
+            args.exten,
+            port=args.port,
+            context=args.context,
+            username=args.user,
+            secret=args.secret,
+            caller_number="1234",
+            caller_name="py-iax2 example",
+        )
         print("answered with", iax2.formats.format_names(call.format))
 
         def on_event(ev: iax2.CallEvent) -> None:
@@ -53,8 +60,8 @@ async def main() -> None:
 
         rate = call.codec.sample_rate if call.codec else 8000
         pcm = audio.read_wav(args.play, rate) if args.play else audio.tone(440, 2000, rate)
-        await call.play_pcm(pcm)          # paced in real time
-        await asyncio.sleep(0.5)          # let the last echoes arrive
+        await call.play_pcm(pcm)  # paced in real time
+        await asyncio.sleep(0.5)  # let the last echoes arrive
         await call.hangup()
 
         if args.record:

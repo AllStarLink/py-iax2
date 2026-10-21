@@ -10,8 +10,14 @@ import sys
 from ..formats import Format
 from .base import Codec
 
-__all__ = ["ALawCodec", "ULawCodec", "alaw_to_linear", "linear_to_alaw", "linear_to_ulaw",
-           "ulaw_to_linear"]
+__all__ = [
+    "ALawCodec",
+    "ULawCodec",
+    "alaw_to_linear",
+    "linear_to_alaw",
+    "linear_to_ulaw",
+    "ulaw_to_linear",
+]
 
 _BIAS = 0x84
 _CLIP = 32635

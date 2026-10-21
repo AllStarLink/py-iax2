@@ -32,8 +32,8 @@ from iax2.frames import (
 )
 from iax2.ies import IEs, datetime_from_ie, datetime_to_ie, decode_addr, encode_addr
 
-
 # --------------------------------------------------------------------------- subclass
+
 
 @pytest.mark.parametrize("value", [0, 1, 0x7F, 0x80, 1 << 12, 1 << 34, 1 << 63])
 def test_subclass_round_trip(value):
@@ -54,6 +54,7 @@ def test_subclass_uncompressible():
 
 
 # --------------------------------------------------------------------------- formats
+
 
 def test_format_info():
     info = format_info(Format.GSM)
@@ -82,11 +83,15 @@ def test_best_and_choose():
     assert choose_format(caps, Format.GSM, caps, our_prefs=[Format.ALAW, Format.GSM]) == Format.ALAW
     # caller priority with caller prefs
     assert (
-        choose_format(caps, 0, caps, our_prefs=[Format.ALAW], peer_prefs=[Format.GSM], caller_first=True)
+        choose_format(
+            caps, 0, caps, our_prefs=[Format.ALAW], peer_prefs=[Format.GSM], caller_first=True
+        )
         == Format.GSM
     )
     # our prefs miss -> caller prefs -> best
-    assert choose_format(caps, 0, caps, our_prefs=[Format.G729], peer_prefs=[Format.GSM]) == Format.GSM
+    assert (
+        choose_format(caps, 0, caps, our_prefs=[Format.G729], peer_prefs=[Format.GSM]) == Format.GSM
+    )
     assert choose_format(caps, 0, caps, our_prefs=[Format.G729]) == Format.ULAW
     # prefs disabled: requested format if supported
     assert choose_format(caps, Format.GSM, caps, use_prefs=False) == Format.GSM
@@ -96,6 +101,7 @@ def test_best_and_choose():
 
 
 # --------------------------------------------------------------------------- IEs
+
 
 def test_ie_round_trip_kinds():
     when = dt.datetime(2026, 10, 19, 14, 31, 58)
@@ -191,6 +197,7 @@ def test_addr_encoding_matches_linux_sockaddr():
 
 # --------------------------------------------------------------------------- frames
 
+
 def test_full_frame_wire_layout():
     f = FullFrame.iax(
         IAXCommand.NEW,
@@ -261,7 +268,10 @@ def test_video_frame():
 def test_trunk_frame(with_ts):
     t = TrunkFrame(
         123456,
-        [TrunkEntry(3, b"aaaa", 10 if with_ts else None), TrunkEntry(4, b"bb", 20 if with_ts else None)],
+        [
+            TrunkEntry(3, b"aaaa", 10 if with_ts else None),
+            TrunkEntry(4, b"bb", 20 if with_ts else None),
+        ],
         with_ts,
     )
     raw = t.to_bytes()
@@ -276,7 +286,11 @@ def test_trunk_truncated_entry_dropped():
 
 
 def test_peek():
-    assert peek_call_numbers(FullFrame(6, 2, source_call=3, dest_call=4).to_bytes()) == ("full", 3, 4)
+    assert peek_call_numbers(FullFrame(6, 2, source_call=3, dest_call=4).to_bytes()) == (
+        "full",
+        3,
+        4,
+    )
     assert peek_call_numbers(b"\x00\x05\x00\x00") == ("mini", 5, 0)
     assert peek_call_numbers(b"\x00\x00\x80\x05\x00\x00") == ("video", 5, 0)
     assert peek_call_numbers(b"\x00\x00\x01\x00") == ("meta", 0, 0)

@@ -24,8 +24,9 @@ def main() -> None:
 
     with SyncEndpoint(port=0) as ep:
         print(f"RTT to {args.host}: {ep.poke(args.host) * 1000:.1f} ms")
-        call = ep.dial(args.host, args.exten, context=args.context, username=args.user,
-                       secret=args.secret)
+        call = ep.dial(
+            args.host, args.exten, context=args.context, username=args.user, secret=args.secret
+        )
         call.send_dtmf("123")
         call.play_pcm(audio.tone(1000, 1000))
         frame = call.recv_audio(timeout=1)

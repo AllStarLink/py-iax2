@@ -42,8 +42,9 @@ def tone(freq: float, ms: int, rate: int = 8000, amplitude: float = 0.3) -> byte
     """
     n = rate * ms // 1000
     peak = int(32767 * max(0.0, min(1.0, amplitude)))
-    return _bytes(array.array("h", (int(peak * math.sin(2 * math.pi * freq * i / rate))
-                                    for i in range(n))))
+    return _bytes(
+        array.array("h", (int(peak * math.sin(2 * math.pi * freq * i / rate)) for i in range(n)))
+    )
 
 
 def silence(ms: int, rate: int = 8000) -> bytes:
@@ -97,8 +98,9 @@ def read_wav(path: str | os.PathLike[str], rate: int = 8000) -> bytes:
         raise ValueError(f"unsupported WAV sample width {width * 8} bits")
     if channels > 1:
         a = _samples(raw)
-        mono = array.array("h", (sum(a[i:i + channels]) // channels
-                                 for i in range(0, len(a), channels)))
+        mono = array.array(
+            "h", (sum(a[i : i + channels]) // channels for i in range(0, len(a), channels))
+        )
         raw = _bytes(mono)
     return resample(raw, src_rate, rate)
 

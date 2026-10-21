@@ -78,3 +78,8 @@ unchecked milestone.**
 - 2026-10-20: M11 done: iax2-tool CLI (poke/call/serve/register/decode), iax2.audio helpers, examples/ (echo_server, dial_play_record, sync_client, mini_pbx, allstar_client) all run against Asterisk/app_rpt. Interop has an app_rpt client test (pyiax-rpt user).
 - 2026-10-20: M12 done: Sphinx docs (guide, CLI, protocol notes, API; nitpicky -W clean), README, CHANGELOG. Installed via apt: python3-sphinx, python3-hatchling, dh-python, pybuild-plugin-pyproject, debhelper, devscripts, python3-build.
 - 2026-10-20: M13 done: wheel/sdist build clean (python3 -m build --no-isolation); debian/ (pybuild + dh-sequence-python3, tests run at build, manpage); dpkg-buildpackage -b OK, lintian only ITP warning; .deb smoke-tested then removed. Next: quality pass (ruff, mypy --strict), review, then report to user.
+- 2026-10-21: Final pass done. ruff check + ruff format clean (RUF002 ignored: intentional typography);
+  mypy --strict clean; JitterBuffer.reset no longer calls __init__; examples keep refs to per-call tasks.
+  Release prep: PyPI name `iax2` unclaimed; sdist/wheel build + `twine check --strict` pass; py.typed shipped.
+  Tests: 69 unit + 23 interop pass (before and after). Remaining before an actual release (owner's call):
+  bump 0.1.0.dev0 -> 0.1.0, CHANGELOG date, tag, `twine upload`.

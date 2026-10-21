@@ -23,6 +23,7 @@ server; REGREL releases a registration.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import enum
 import logging
 import time
@@ -73,8 +74,17 @@ class Registration:
         on_change: Optional callback ``(registration)`` on every state change.
     """
 
-    def __init__(self, endpoint: Endpoint, host: str, username: str, secret: str | None,
-                 *, port: int = DEFAULT_PORT, refresh: int = 60, private_key: Any = None) -> None:
+    def __init__(
+        self,
+        endpoint: Endpoint,
+        host: str,
+        username: str,
+        secret: str | None,
+        *,
+        port: int = DEFAULT_PORT,
+        refresh: int = 60,
+        private_key: Any = None,
+    ) -> None:
         self.endpoint = endpoint
         self.host = host
         self.port = port
@@ -110,7 +120,7 @@ class Registration:
         if self.on_change is not None:
             try:
                 self.on_change(self)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("registration on_change failed")
 
     async def start(self) -> None:
@@ -148,10 +158,8 @@ class Registration:
             ies = IEs().add(IE.USERNAME, self.username).add(IE.CALLTOKEN, b"")
             f = self._session.send_command(IAXCommand.REGREL, ies)
             self._session.remember_for_calltoken(f)
-            try:
+            with contextlib.suppress(TimeoutError, RegistrationError):
                 await asyncio.wait_for(asyncio.shield(self._result), 5)
-            except (TimeoutError, RegistrationError):
-                pass
         self._set_state(RegistrationState.UNREGISTERED)
         if self._session is not None and not self._session.destroyed:
             self._session.destroy()
@@ -203,15 +211,19 @@ class Registration:
         cmd = frame.subclass
         if cmd == IAXCommand.REGAUTH:
             try:
-                reply, _ = build_auth_reply(self.credentials, ies.get(IE.AUTHMETHODS, 0),
-                                            ies.get(IE.CHALLENGE))
+                reply, _ = build_auth_reply(
+                    self.credentials, ies.get(IE.AUTHMETHODS, 0), ies.get(IE.CHALLENGE)
+                )
             except AuthenticationError as exc:
                 self.last_error = str(exc)
                 self._set_state(RegistrationState.NOAUTH)
-                session.send_command(IAXCommand.REJECT,
-                                     IEs().add(IE.CAUSE, "No authority found")
-                                     .add(IE.CAUSECODE, int(Cause.FACILITY_NOT_SUBSCRIBED)),
-                                     final=True)
+                session.send_command(
+                    IAXCommand.REJECT,
+                    IEs()
+                    .add(IE.CAUSE, "No authority found")
+                    .add(IE.CAUSECODE, int(Cause.FACILITY_NOT_SUBSCRIBED)),
+                    final=True,
+                )
                 self._finish(RegistrationError(str(exc)))
                 return
             out = IEs().add(IE.USERNAME, self.username).add(IE.REFRESH, self.requested_refresh)
@@ -241,8 +253,13 @@ class Registration:
             session.send_ack(frame)
             self.last_error = ies.get(IE.CAUSE) or "rejected"
             self._set_state(RegistrationState.REJECTED)
-            self._finish(RegistrationError(f"registration rejected: {self.last_error}",
-                                           ies.get(IE.CAUSE), ies.get(IE.CAUSECODE)))
+            self._finish(
+                RegistrationError(
+                    f"registration rejected: {self.last_error}",
+                    ies.get(IE.CAUSE),
+                    ies.get(IE.CAUSECODE),
+                )
+            )
             session.destroy()
 
     def on_media(self, *args: Any) -> None:
@@ -300,8 +317,14 @@ class Registrar:
         caller_ids: Optional ``{username: (number, name)}`` returned in REGACK.
     """
 
-    def __init__(self, endpoint: Endpoint, users: dict[str, Credentials] | None = None,
-                 *, min_refresh: int = 60, max_refresh: int = 60) -> None:
+    def __init__(
+        self,
+        endpoint: Endpoint,
+        users: dict[str, Credentials] | None = None,
+        *,
+        min_refresh: int = 60,
+        max_refresh: int = 60,
+    ) -> None:
         self.endpoint = endpoint
         self.users = users if users is not None else {}
         self.min_refresh = min_refresh
@@ -366,10 +389,13 @@ class Registrar:
 
         def send() -> None:
             if not session.destroyed:
-                session.send_command(IAXCommand.REGREJ,
-                                     IEs().add(IE.CAUSE, "Registration Refused")
-                                     .add(IE.CAUSECODE, int(Cause.FACILITY_REJECTED)),
-                                     final=True)
+                session.send_command(
+                    IAXCommand.REGREJ,
+                    IEs()
+                    .add(IE.CAUSE, "Registration Refused")
+                    .add(IE.CAUSECODE, int(Cause.FACILITY_REJECTED)),
+                    final=True,
+                )
 
         if self.endpoint.config.delay_reject:
             session.call_later(1.0, send)
@@ -398,12 +424,13 @@ class Registrar:
             if cid:
                 ies.add(IE.CALLING_NUMBER, cid[0]).add(IE.CALLING_NAME, cid[1])
         session.send_command(IAXCommand.REGACK, ies, final=True)
-        log.info("peer %s %s %s:%s", username, "unregistered" if release else "registered",
-                 *session.addr)
+        log.info(
+            "peer %s %s %s:%s", username, "unregistered" if release else "registered", *session.addr
+        )
         if self.on_register is not None:
             try:
                 self.on_register(entry)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("on_register callback failed")
 
     def on_media(self, *args: Any) -> None:

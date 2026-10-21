@@ -267,7 +267,9 @@ class FullFrame(Frame):
 
     def describe(self) -> str:
         """Return a one-line human readable summary (for logs/debugging)."""
-        ft = self.frame_type.name if isinstance(self.frame_type, FrameType) else str(self.frame_type)
+        ft = (
+            self.frame_type.name if isinstance(self.frame_type, FrameType) else str(self.frame_type)
+        )
         sc = self.subclass.name if hasattr(self.subclass, "name") else str(self.subclass)
         extra = ""
         if self.frame_type == FrameType.IAX and self.payload:
@@ -404,12 +406,18 @@ class TrunkFrame(Frame):
     def to_bytes(self) -> bytes:
         """Serialise to a datagram."""
         out = [
-            _META.pack(0, MetaCommand.TRUNK, META_TRUNK_MINI if self.trunk_timestamps else META_TRUNK_SUPERMINI),
+            _META.pack(
+                0,
+                MetaCommand.TRUNK,
+                META_TRUNK_MINI if self.trunk_timestamps else META_TRUNK_SUPERMINI,
+            ),
             struct.pack("!I", self.timestamp & 0xFFFFFFFF),
         ]
         for e in self.entries:
             if self.trunk_timestamps:
-                out.append(struct.pack("!HHH", len(e.payload), e.source_call, (e.timestamp or 0) & 0xFFFF))
+                out.append(
+                    struct.pack("!HHH", len(e.payload), e.source_call, (e.timestamp or 0) & 0xFFFF)
+                )
             else:
                 out.append(struct.pack("!HH", e.source_call, len(e.payload)))
             out.append(e.payload)

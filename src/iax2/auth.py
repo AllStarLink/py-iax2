@@ -85,6 +85,7 @@ def md5_response(challenge: str, secret: str) -> str:
 # RSA
 # --------------------------------------------------------------------------
 
+
 def _require_crypto() -> Any:
     try:
         from cryptography.hazmat.primitives import hashes, serialization
@@ -132,8 +133,11 @@ class RSAKeyStore:
         passphrases: Optional ``{key name: passphrase}`` for encrypted keys.
     """
 
-    def __init__(self, directory: str | os.PathLike[str] = "/var/lib/asterisk/keys",
-                 passphrases: dict[str, str] | None = None):
+    def __init__(
+        self,
+        directory: str | os.PathLike[str] = "/var/lib/asterisk/keys",
+        passphrases: dict[str, str] | None = None,
+    ):
         self.directory = Path(directory)
         self.passphrases = dict(passphrases or {})
         self._public: dict[str, RSAPublicKey] = {}
@@ -170,6 +174,7 @@ class RSAKeyStore:
 # --------------------------------------------------------------------------
 # Credentials and high-level helpers
 # --------------------------------------------------------------------------
+
 
 @dataclass
 class Credentials:

@@ -14,8 +14,9 @@ from iax2.events import Answered, DTMFEvent, HangupEvent, Ringing, TextEvent
 
 @pytest.fixture
 async def pair():
-    server = iax2.Endpoint("127.0.0.1", 0, users={"alice": Credentials(secret="s3cret")},
-                           allow_guest=False)
+    server = iax2.Endpoint(
+        "127.0.0.1", 0, users={"alice": Credentials(secret="s3cret")}, allow_guest=False
+    )
     client = iax2.Endpoint("127.0.0.1", 0)
     await server.start()
     await client.start()
@@ -36,9 +37,16 @@ async def _answer_one(server, *, ring=False):
 async def test_call_md5_calltoken_answer_hangup(pair):
     server, client = pair
     srv_task = asyncio.create_task(_answer_one(server, ring=True))
-    call = await client.dial("127.0.0.1", "1000", port=server.port, username="alice",
-                             secret="s3cret", caller_number="555", caller_name="Test",
-                             timeout=5)
+    call = await client.dial(
+        "127.0.0.1",
+        "1000",
+        port=server.port,
+        username="alice",
+        secret="s3cret",
+        caller_number="555",
+        caller_name="Test",
+        timeout=5,
+    )
     scall = await srv_task
     assert call.state is iax2.CallState.ANSWERED
     assert call.auth_method is iax2.AuthMethod.MD5
@@ -48,9 +56,11 @@ async def test_call_md5_calltoken_answer_hangup(pair):
     assert call.format == scall.format == Format.ULAW
 
     events = []
+
     async def collect():
         async for ev in scall.events():
             events.append(ev)
+
     t = asyncio.create_task(collect())
     await call.hangup()
     await asyncio.wait_for(scall.wait_ended(), 5)
@@ -66,8 +76,9 @@ async def test_call_md5_calltoken_answer_hangup(pair):
 async def test_bad_password_rejected(pair):
     server, client = pair
     with pytest.raises(iax2.CallRejected) as ei:
-        await client.dial("127.0.0.1", "1000", port=server.port, username="alice",
-                          secret="wrong", timeout=5)
+        await client.dial(
+            "127.0.0.1", "1000", port=server.port, username="alice", secret="wrong", timeout=5
+        )
     assert ei.value.cause_code == Cause.FACILITY_NOT_SUBSCRIBED
 
 
@@ -80,8 +91,9 @@ async def test_unknown_user_rejected(pair):
 async def test_audio_dtmf_text_both_ways(pair):
     server, client = pair
     srv_task = asyncio.create_task(_answer_one(server))
-    call = await client.dial("127.0.0.1", "1", port=server.port, username="alice",
-                             secret="s3cret", timeout=5)
+    call = await client.dial(
+        "127.0.0.1", "1", port=server.port, username="alice", secret="s3cret", timeout=5
+    )
     scall = await srv_task
     pcm = struct.pack("<160h", *([1000, -1000] * 80))
     for _ in range(10):
@@ -110,8 +122,12 @@ async def test_audio_dtmf_text_both_ways(pair):
         assert ev is not None
         if isinstance(ev, (DTMFEvent, TextEvent)):
             got.append(ev)
-    assert [(e.digit, e.begin) for e in got[:4]] == [("5", True), ("5", False), ("#", True),
-                                                     ("#", False)]
+    assert [(e.digit, e.begin) for e in got[:4]] == [
+        ("5", True),
+        ("5", False),
+        ("#", True),
+        ("#", False),
+    ]
     assert got[4].text == "hello"
     await scall.hangup()
     await asyncio.wait_for(call.wait_ended(), 5)
@@ -128,8 +144,15 @@ async def test_ringing_event_and_reject(pair):
         c.reject("Busy here", Cause.USER_BUSY)
 
     t = asyncio.create_task(ring_then_reject())
-    call = await client.dial("127.0.0.1", "1", port=server.port, username="alice",
-                             secret="s3cret", wait="accepted", timeout=5)
+    call = await client.dial(
+        "127.0.0.1",
+        "1",
+        port=server.port,
+        username="alice",
+        secret="s3cret",
+        wait="accepted",
+        timeout=5,
+    )
     ev_types = []
     async for ev in call.events():
         ev_types.append(type(ev))
@@ -178,11 +201,13 @@ async def test_inval_for_unknown_call(pair):
 
 
 async def test_retransmit_then_timeout():
-    ep = iax2.Endpoint("127.0.0.1", 0, timing=iax2.Timing(default_retry_ms=50, min_retry_ms=10,
-                                                          max_retry_ms=100))
+    ep = iax2.Endpoint(
+        "127.0.0.1", 0, timing=iax2.Timing(default_retry_ms=50, min_retry_ms=10, max_retry_ms=100)
+    )
     await ep.start()
     # nobody listens on this port
     import socket
+
     dead = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     dead.bind(("127.0.0.1", 0))
     port = dead.getsockname()[1]
@@ -211,10 +236,12 @@ async def test_native_transfer_three_endpoints():
     for e in (srv, a, b):
         await e.start()
     try:
+
         async def answer():
             c = await srv.accept_call(timeout=5)
             await c.answer()
             return c
+
         t1 = asyncio.create_task(answer())
         ca = await a.dial("127.0.0.1", "1", port=srv.port, timeout=5)
         sa = await t1
@@ -260,10 +287,12 @@ async def test_transfer_refused_when_disabled():
         await e.start()
     a.transfers.enabled = False
     try:
+
         async def answer():
             c = await srv.accept_call(timeout=5)
             await c.answer()
             return c
+
         t1 = asyncio.create_task(answer())
         ca = await a.dial("127.0.0.1", "1", port=srv.port, timeout=5)
         sa = await t1
@@ -283,8 +312,9 @@ async def test_transfer_refused_when_disabled():
 async def test_video_full_then_mini(pair):
     server, client = pair
     srv_task = asyncio.create_task(_answer_one(server))
-    call = await client.dial("127.0.0.1", "1", port=server.port, username="alice",
-                             secret="s3cret", timeout=5)
+    call = await client.dial(
+        "127.0.0.1", "1", port=server.port, username="alice", secret="s3cret", timeout=5
+    )
     scall = await srv_task
     got = []
     scall.on_video = got.append
@@ -300,11 +330,13 @@ async def test_video_full_then_mini(pair):
 
 async def test_dpreq_dprep(pair):
     server, client = pair
-    server.dialplan = lambda call, number: iax2.constants.DPStatus.EXISTS if number == "100" \
-        else iax2.constants.DPStatus.NONEXISTENT
+    server.dialplan = lambda call, number: (
+        iax2.constants.DPStatus.EXISTS if number == "100" else iax2.constants.DPStatus.NONEXISTENT
+    )
     srv_task = asyncio.create_task(_answer_one(server))
-    call = await client.dial("127.0.0.1", "1", port=server.port, username="alice",
-                             secret="s3cret", timeout=5)
+    call = await client.dial(
+        "127.0.0.1", "1", port=server.port, username="alice", secret="s3cret", timeout=5
+    )
     await srv_task
     assert await call.query_dialplan("100") & iax2.constants.DPStatus.EXISTS
     assert await call.query_dialplan("999") & iax2.constants.DPStatus.NONEXISTENT
@@ -313,15 +345,21 @@ async def test_dpreq_dprep(pair):
 
 async def test_encrypted_call_and_key_rotation():
     enc = iax2.Encryption.AES128 | iax2.Encryption.KEYROTATE
-    server = iax2.Endpoint("127.0.0.1", 0, users={"bob": Credentials(secret="a;pw")},
-                           encryption=enc, force_encryption=True)
+    server = iax2.Endpoint(
+        "127.0.0.1",
+        0,
+        users={"bob": Credentials(secret="a;pw")},
+        encryption=enc,
+        force_encryption=True,
+    )
     client = iax2.Endpoint("127.0.0.1", 0, encryption=enc)
     await server.start()
     await client.start()
     try:
         t = asyncio.create_task(_answer_one(server))
-        call = await client.dial("127.0.0.1", "1", port=server.port, username="bob",
-                                 secret="pw", timeout=5)
+        call = await client.dial(
+            "127.0.0.1", "1", port=server.port, username="bob", secret="pw", timeout=5
+        )
         scall = await t
         assert call.session.crypto is not None and scall.session.crypto is not None
         assert call.session.crypto.tx_key == scall.session.crypto.rx_key
@@ -332,6 +370,7 @@ async def test_encrypted_call_and_key_rotation():
         f2 = await scall.recv_audio(timeout=2)
         assert f1 is not None and f2 is not None and not f2.full
         from iax2 import crypto
+
         crypto._rotate(call.session)  # force an RTKEY
         await asyncio.sleep(0.1)
         assert call.session.crypto.tx_key == scall.session.crypto.rx_key
@@ -352,15 +391,21 @@ async def test_encrypted_call_and_key_rotation():
 
 
 async def test_force_encryption_rejects_plain_caller():
-    server = iax2.Endpoint("127.0.0.1", 0, users={"bob": Credentials(secret="pw")},
-                           encryption=iax2.Encryption.AES128, force_encryption=True)
+    server = iax2.Endpoint(
+        "127.0.0.1",
+        0,
+        users={"bob": Credentials(secret="pw")},
+        encryption=iax2.Encryption.AES128,
+        force_encryption=True,
+    )
     client = iax2.Endpoint("127.0.0.1", 0)
     await server.start()
     await client.start()
     try:
         with pytest.raises(iax2.CallRejected):
-            await client.dial("127.0.0.1", "1", port=server.port, username="bob", secret="pw",
-                              timeout=5)
+            await client.dial(
+                "127.0.0.1", "1", port=server.port, username="bob", secret="pw", timeout=5
+            )
     finally:
         await client.close()
         await server.close()
@@ -369,8 +414,9 @@ async def test_force_encryption_rejects_plain_caller():
 async def test_playout_jitterbuffer(pair):
     server, client = pair
     srv_task = asyncio.create_task(_answer_one(server))
-    call = await client.dial("127.0.0.1", "1", port=server.port, username="alice",
-                             secret="s3cret", timeout=5)
+    call = await client.dial(
+        "127.0.0.1", "1", port=server.port, username="alice", secret="s3cret", timeout=5
+    )
     scall = await srv_task
     pcm = struct.pack("<160h", *([700] * 160))
     sender = asyncio.create_task(call.play_pcm(pcm * 25))
@@ -402,8 +448,7 @@ async def test_ipv6_loopback():
         pytest.skip("IPv6 loopback unavailable")
     try:
         t = asyncio.create_task(_answer_one(server))
-        call = await client.dial("::1", "1", port=server.port, username="u", secret="p",
-                                 timeout=5)
+        call = await client.dial("::1", "1", port=server.port, username="u", secret="p", timeout=5)
         scall = await t
         assert scall.peer_addr == ("::1", client.port)
         server.enable_registrar()

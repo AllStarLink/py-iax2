@@ -29,8 +29,8 @@ __all__ = [
     "choose_format",
     "decode_codec_prefs",
     "encode_codec_prefs",
-    "format_info",
     "format_by_name",
+    "format_info",
     "format_names",
     "iter_formats",
 ]
@@ -72,10 +72,25 @@ class Format(enum.IntFlag):
 
 #: Every audio format bit.
 AUDIO_MASK = (
-    Format.G723 | Format.GSM | Format.ULAW | Format.ALAW | Format.G726_AAL2 | Format.ADPCM
-    | Format.SLIN | Format.LPC10 | Format.G729 | Format.SPEEX | Format.ILBC | Format.G726
-    | Format.G722 | Format.SIREN7 | Format.SIREN14 | Format.SLIN16 | Format.G719
-    | Format.SPEEX16 | Format.OPUS
+    Format.G723
+    | Format.GSM
+    | Format.ULAW
+    | Format.ALAW
+    | Format.G726_AAL2
+    | Format.ADPCM
+    | Format.SLIN
+    | Format.LPC10
+    | Format.G729
+    | Format.SPEEX
+    | Format.ILBC
+    | Format.G726
+    | Format.G722
+    | Format.SIREN7
+    | Format.SIREN14
+    | Format.SLIN16
+    | Format.G719
+    | Format.SPEEX16
+    | Format.OPUS
 )
 #: Every video format bit.
 VIDEO_MASK = Format.H261 | Format.H263 | Format.H263P | Format.H264 | Format.MP4 | Format.VP8
@@ -168,19 +183,66 @@ _BY_NAME = {i.name: i.format for i in _INFO.values()}
 # Order matters: index + 1 is what goes over the wire in CODEC_PREFS
 # (``iax2_supported_formats[]`` in Asterisk's codec_pref.c).
 _PREF_ORDER: tuple[int, ...] = (
-    Format.G723, Format.GSM, Format.ULAW, Format.ALAW, Format.G726, Format.ADPCM,
-    Format.SLIN, Format.LPC10, Format.G729, Format.SPEEX, Format.SPEEX16, Format.ILBC,
-    Format.G726_AAL2, Format.G722, Format.SLIN16, Format.JPEG, Format.PNG, Format.H261,
-    Format.H263, Format.H263P, Format.H264, Format.MP4, Format.T140_RED, Format.T140,
-    Format.SIREN7, Format.SIREN14, 0, Format.G719, 0, 0, 0, 0, 0, 0, 0, 0,
-    Format.OPUS, Format.VP8,
+    Format.G723,
+    Format.GSM,
+    Format.ULAW,
+    Format.ALAW,
+    Format.G726,
+    Format.ADPCM,
+    Format.SLIN,
+    Format.LPC10,
+    Format.G729,
+    Format.SPEEX,
+    Format.SPEEX16,
+    Format.ILBC,
+    Format.G726_AAL2,
+    Format.G722,
+    Format.SLIN16,
+    Format.JPEG,
+    Format.PNG,
+    Format.H261,
+    Format.H263,
+    Format.H263P,
+    Format.H264,
+    Format.MP4,
+    Format.T140_RED,
+    Format.T140,
+    Format.SIREN7,
+    Format.SIREN14,
+    0,
+    Format.G719,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    Format.OPUS,
+    Format.VP8,
 )
 
 # Asterisk's opinionated "best codec" ranking (iax2_format_compatibility_best()).
 _BEST: tuple[Format, ...] = (
-    Format.ULAW, Format.ALAW, Format.G719, Format.SIREN14, Format.SIREN7, Format.G722,
-    Format.SLIN16, Format.SLIN, Format.G726, Format.G726_AAL2, Format.ADPCM, Format.GSM,
-    Format.ILBC, Format.SPEEX16, Format.SPEEX, Format.OPUS, Format.LPC10, Format.G729,
+    Format.ULAW,
+    Format.ALAW,
+    Format.G719,
+    Format.SIREN14,
+    Format.SIREN7,
+    Format.G722,
+    Format.SLIN16,
+    Format.SLIN,
+    Format.G726,
+    Format.G726_AAL2,
+    Format.ADPCM,
+    Format.GSM,
+    Format.ILBC,
+    Format.SPEEX16,
+    Format.SPEEX,
+    Format.OPUS,
+    Format.LPC10,
+    Format.G729,
     Format.G723,
 )
 

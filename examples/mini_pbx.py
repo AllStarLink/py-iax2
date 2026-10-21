@@ -29,6 +29,7 @@ log = logging.getLogger("mini_pbx")
 
 async def relay(a: iax2.Call, b: iax2.Call) -> None:
     """Copy audio, DTMF and text from ``a`` to ``b`` until either ends."""
+
     def on_event(ev: iax2.CallEvent) -> None:
         if b.is_ended:
             return
@@ -44,8 +45,13 @@ async def relay(a: iax2.Call, b: iax2.Call) -> None:
         await b.hangup(a.cause_code or iax2.Cause.NORMAL_CLEARING)
 
 
-async def handle(ep: iax2.Endpoint, registrar: iax2.Registrar, creds: dict[str, str],
-                 caller: iax2.Call, transfer: bool) -> None:
+async def handle(
+    ep: iax2.Endpoint,
+    registrar: iax2.Registrar,
+    creds: dict[str, str],
+    caller: iax2.Call,
+    transfer: bool,
+) -> None:
     target = caller.info.called_number or ""
     addr = registrar.lookup(target)
     if addr is None:
@@ -55,11 +61,17 @@ async def handle(ep: iax2.Endpoint, registrar: iax2.Registrar, creds: dict[str, 
     caller.ring()
     try:
         # Call the target using its own credentials (it authenticates us as itself).
-        callee = await ep.dial(addr[0], target, port=addr[1], username=target,
-                               secret=creds.get(target),
-                               caller_number=caller.info.calling_number or caller.info.username,
-                               caller_name=caller.info.calling_name,
-                               formats=[caller.format], timeout=30)
+        callee = await ep.dial(
+            addr[0],
+            target,
+            port=addr[1],
+            username=target,
+            secret=creds.get(target),
+            caller_number=caller.info.calling_number or caller.info.username,
+            caller_name=caller.info.calling_name,
+            formats=[caller.format],
+            timeout=30,
+        )
     except iax2.IAX2Error as exc:
         caller.reject(str(exc), getattr(exc, "cause_code", None) or iax2.Cause.NO_ANSWER)
         return
@@ -86,8 +98,11 @@ async def main() -> None:
         registrar = ep.enable_registrar()
         registrar.on_register = lambda e: log.info("%s at %s", e.username, e.addr)
         log.info("mini PBX on %s:%s", ep.host, ep.port)
+        tasks: set[asyncio.Task[None]] = set()  # keep strong refs until each call ends
         async for call in ep.incoming():
-            asyncio.create_task(handle(ep, registrar, creds, call, args.transfer))
+            task = asyncio.create_task(handle(ep, registrar, creds, call, args.transfer))
+            tasks.add(task)
+            task.add_done_callback(tasks.discard)
 
 
 if __name__ == "__main__":

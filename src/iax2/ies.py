@@ -27,6 +27,7 @@ Example::
 
 from __future__ import annotations
 
+import contextlib
 import datetime as _dt
 import enum
 import ipaddress
@@ -130,8 +131,7 @@ _KINDS: dict[int, IEKind] = {
     IE.CALLINGANI2: IEKind.U32,
 }
 
-_FIXED = {IEKind.U8: 1, IEKind.U16: 2, IEKind.U32: 4, IEKind.VERSIONED_U64: 9,
-          IEKind.DATETIME: 4}
+_FIXED = {IEKind.U8: 1, IEKind.U16: 2, IEKind.U32: 4, IEKind.VERSIONED_U64: 9, IEKind.DATETIME: 4}
 
 _AF_INET = 2
 _AF_INET6 = 10  # Linux value; Asterisk sends host-order struct sockaddr.
@@ -152,6 +152,7 @@ def _ie_name(ie: int) -> str:
 # --------------------------------------------------------------------------
 # DATETIME
 # --------------------------------------------------------------------------
+
 
 def datetime_to_ie(when: _dt.datetime | float | None = None) -> int:
     """Pack a time into the 32-bit IAX2 DATETIME value.
@@ -206,6 +207,7 @@ def datetime_from_ie(value: int) -> _dt.datetime:
 # APPARENT_ADDR
 # --------------------------------------------------------------------------
 
+
 def encode_addr(host: str, port: int) -> bytes:
     """Encode an address the way Asterisk does on Linux.
 
@@ -218,7 +220,10 @@ def encode_addr(host: str, port: int) -> bytes:
     if ip.version == 4:
         return struct.pack("<H", _AF_INET) + struct.pack("!H", port) + ip.packed + bytes(8)
     return (
-        struct.pack("<H", _AF_INET6) + struct.pack("!HI", port, 0) + ip.packed + struct.pack("!I", 0)
+        struct.pack("<H", _AF_INET6)
+        + struct.pack("!HI", port, 0)
+        + ip.packed
+        + struct.pack("!I", 0)
     )
 
 
@@ -245,6 +250,7 @@ def decode_addr(data: bytes) -> tuple[str, int]:
 # Value codecs
 # --------------------------------------------------------------------------
 
+
 def encode_value(ie: int, value: Any) -> bytes:
     """Encode a Python value as the payload (without TLV header) of ``ie``.
 
@@ -267,7 +273,9 @@ def encode_value(ie: int, value: Any) -> bytes:
         if kind in (IEKind.STRING, IEKind.VARIABLE):
             if kind is IEKind.VARIABLE and isinstance(value, tuple):
                 value = f"{value[0]}={value[1]}"
-            return value if isinstance(value, bytes) else str(value).encode("utf-8", "surrogateescape")
+            return (
+                value if isinstance(value, bytes) else str(value).encode("utf-8", "surrogateescape")
+            )
         if kind is IEKind.U8:
             return struct.pack("!B", value)
         if kind is IEKind.U16:
@@ -337,6 +345,7 @@ def decode_value(ie: int, data: bytes) -> Any:
 # --------------------------------------------------------------------------
 # Container
 # --------------------------------------------------------------------------
+
 
 class IEs:
     """An ordered collection of Information Elements.
@@ -469,10 +478,8 @@ class IEs:
         """Return the decoded values of every well-formed element of type ``ie``."""
         out = []
         for d in self.raw_all(ie):
-            try:
+            with contextlib.suppress(IEError):
                 out.append(decode_value(ie, d))
-            except IEError:
-                pass
         return out
 
     # Convenience accessors that apply Asterisk's precedence rules.

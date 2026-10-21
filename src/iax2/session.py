@@ -28,6 +28,7 @@ This is an internal building block; applications use
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -87,8 +88,16 @@ class SessionOwner(Protocol):
     def on_iax(self, session: Session, frame: FullFrame, ies: IEs) -> None:
         """Handle an IAX command not handled by the session itself."""
 
-    def on_media(self, session: Session, frame_type: int, subclass: int, payload: bytes,
-                 timestamp: int, full: bool, mark: bool) -> None:
+    def on_media(
+        self,
+        session: Session,
+        frame_type: int,
+        subclass: int,
+        payload: bytes,
+        timestamp: int,
+        full: bool,
+        mark: bool,
+    ) -> None:
         """Handle a non-IAX frame (voice, video, control, DTMF, text, ...)."""
 
     def on_session_error(self, session: Session, reason: str) -> None:
@@ -258,8 +267,9 @@ class Session:
         """Milliseconds since this session's timestamp origin (no side effects)."""
         return self._ms_since_offset()
 
-    def calc_timestamp(self, frame_type: int, *, ts: int = 0, samples: int = 0,
-                       rate: int = 8000) -> int:
+    def calc_timestamp(
+        self, frame_type: int, *, ts: int = 0, samples: int = 0, rate: int = 8000
+    ) -> int:
         """Compute the timestamp for an outgoing frame (Asterisk ``calc_timestamp``).
 
         Args:
@@ -382,11 +392,33 @@ class Session:
         if self._held is not None and frame_type != FrameType.IAX:
             self._held.append(_Held(frame_type, subclass, payload, final))
             return None
-        return self._send(frame_type, subclass, payload, ts=ts, seqno=seqno, now=now,
-                          final=final, transfer=transfer, samples=samples, mark=mark)
+        return self._send(
+            frame_type,
+            subclass,
+            payload,
+            ts=ts,
+            seqno=seqno,
+            now=now,
+            final=final,
+            transfer=transfer,
+            samples=samples,
+            mark=mark,
+        )
 
-    def _send(self, frame_type: int, subclass: int, payload: bytes, *, ts: int, seqno: int | None,
-              now: bool, final: bool, transfer: bool, samples: int, mark: bool) -> FullFrame | None:
+    def _send(
+        self,
+        frame_type: int,
+        subclass: int,
+        payload: bytes,
+        *,
+        ts: int,
+        seqno: int | None,
+        now: bool,
+        final: bool,
+        transfer: bool,
+        samples: int,
+        mark: bool,
+    ) -> FullFrame | None:
         lastsent = self.lastsent
         rate = 8000
         if frame_type == FrameType.VOICE:
@@ -401,11 +433,17 @@ class Session:
         sendmini = False
         if frame_type == FrameType.VOICE and subclass == self.svoiceformat:
             hi = fts & 0xFFFF0000
-            if self.trunk or hi == (lastsent & 0xFFFF0000) or hi == ((lastsent + 0x10000) & 0xFFFF0000):
+            if (
+                self.trunk
+                or hi == (lastsent & 0xFFFF0000)
+                or hi == ((lastsent + 0x10000) & 0xFFFF0000)
+            ):
                 sendmini = True
                 now = True
         if frame_type == FrameType.VIDEO:
-            if (fts & 0xFFFF8000) == (self.lastvsent & 0xFFFF8000) and subclass == self.svideoformat:
+            if (fts & 0xFFFF8000) == (
+                self.lastvsent & 0xFFFF8000
+            ) and subclass == self.svideoformat:
                 sendmini = True
                 now = True
             else:
@@ -422,7 +460,9 @@ class Session:
                 return None
             else:
                 data = MiniFrame(self.callno, fts, payload).to_bytes()
-            maddr = self.transfer_addr if self.media_via_transfer and self.transfer_addr else self.addr
+            maddr = (
+                self.transfer_addr if self.media_via_transfer and self.transfer_addr else self.addr
+            )
             self._transmit_raw(data, maddr)
             self.stats.frames_sent += 1
             return None
@@ -507,10 +547,8 @@ class Session:
             p.handle.cancel()
             p.handle = None
         p.retries = -1
-        try:
+        with contextlib.suppress(ValueError):
             self._queue.remove(p)
-        except ValueError:
-            pass
 
     def cancel_transfer_frames(self) -> None:
         """Stop retransmitting any outstanding transfer-path frames."""
@@ -522,18 +560,48 @@ class Session:
         """Send any held non-IAX frames (peer call number is now known)."""
         held, self._held = self._held, None
         for h in held or ():
-            self._send(h.frame_type, h.subclass, h.payload, ts=0, seqno=None, now=False,
-                       final=h.final, transfer=False, samples=0, mark=False)
+            self._send(
+                h.frame_type,
+                h.subclass,
+                h.payload,
+                ts=0,
+                seqno=None,
+                now=False,
+                final=h.final,
+                transfer=False,
+                samples=0,
+                mark=False,
+            )
 
     def send_ack(self, frame: FullFrame) -> None:
         """Send an explicit ACK for ``frame`` (echoing its timestamp)."""
-        self._send(FrameType.IAX, IAXCommand.ACK, b"", ts=frame.timestamp, seqno=frame.iseqno,
-                   now=True, final=False, transfer=False, samples=0, mark=False)
+        self._send(
+            FrameType.IAX,
+            IAXCommand.ACK,
+            b"",
+            ts=frame.timestamp,
+            seqno=frame.iseqno,
+            now=True,
+            final=False,
+            transfer=False,
+            samples=0,
+            mark=False,
+        )
 
     def send_vnak(self) -> None:
         """Ask the peer to retransmit everything from our iseqno."""
-        self._send(FrameType.IAX, IAXCommand.VNAK, b"", ts=0, seqno=self.iseqno, now=True,
-                   final=False, transfer=False, samples=0, mark=False)
+        self._send(
+            FrameType.IAX,
+            IAXCommand.VNAK,
+            b"",
+            ts=0,
+            seqno=self.iseqno,
+            now=True,
+            final=False,
+            transfer=False,
+            samples=0,
+            mark=False,
+        )
 
     def send_raw_full(self, frame: FullFrame, addr: Addr | None = None) -> None:
         """Send a pre-built full frame unreliably (no sequence bookkeeping)."""
@@ -554,13 +622,19 @@ class Session:
         self.stats.frames_received += 1
         from_peer = addr == self.addr
 
-        if from_peer and cmd not in (IAXCommand.TXCNT, IAXCommand.TXACC):
-            if frame.source_call and frame.source_call != self.peer_callno:
-                self.endpoint.rebind_peer_callno(self, frame.source_call)
+        if (
+            from_peer
+            and cmd not in (IAXCommand.TXCNT, IAXCommand.TXACC)
+            and frame.source_call
+            and frame.source_call != self.peer_callno
+        ):
+            self.endpoint.rebind_peer_callno(self, frame.source_call)
 
         # -- sequence number check
         if self.iseqno != frame.oseqno and (
-            self.iseqno or not is_iax or cmd not in (_OOO_OK - {IAXCommand.ACK, IAXCommand.INVAL, IAXCommand.VNAK})
+            self.iseqno
+            or not is_iax
+            or cmd not in (_OOO_OK - {IAXCommand.ACK, IAXCommand.INVAL, IAXCommand.VNAK})
         ):
             if not is_iax or cmd not in _OOO_OK:
                 if ((self.iseqno - frame.oseqno) & 0xFF) < 128:
@@ -596,7 +670,7 @@ class Session:
                 self.last = frame.timestamp
             try:
                 ies = frame.ies
-            except Exception:  # noqa: BLE001 - undecodable: Asterisk drops it
+            except Exception:
                 log.warning("%r: undecodable IEs in %s", self, frame.describe())
                 return
             self._handle_iax(frame, ies)
@@ -611,8 +685,15 @@ class Session:
         if frame.frame_type == FrameType.VOICE:
             self.stats.note_voice(frame.timestamp, self._now())
         if self.owner is not None:
-            self.owner.on_media(self, int(frame.frame_type), int(frame.subclass), frame.payload,
-                                frame.timestamp, True, frame.mark)
+            self.owner.on_media(
+                self,
+                int(frame.frame_type),
+                int(frame.subclass),
+                frame.payload,
+                frame.timestamp,
+                True,
+                frame.mark,
+            )
         if self.last < frame.timestamp:
             self.last = frame.timestamp
 
@@ -787,7 +868,9 @@ class Session:
 
     # ------------------------------------------------------------- lifecycle
 
-    def call_later(self, delay: float, callback: Callable[..., object], *args: object) -> asyncio.TimerHandle:
+    def call_later(
+        self, delay: float, callback: Callable[..., object], *args: object
+    ) -> asyncio.TimerHandle:
         """Schedule a callback that is cancelled automatically on destroy."""
         h = self.loop.call_later(delay, callback, *args)
         self._timers.append(h)

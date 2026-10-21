@@ -69,7 +69,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
-ignore = ["RUF012"]
+ignore = ["RUF012", "RUF002"]  # RUF002: en dashes / × in docstrings are intentional
 
 [tool.mypy]
 python_version = "3.11"

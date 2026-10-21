@@ -25,6 +25,7 @@ __all__ = [
     "IAX_MAX_SHIFT",
     "IAX_PROTO_VERSION",
     "IAX_WINDOW",
+    "IE",
     "AuthMethod",
     "Cause",
     "ControlType",
@@ -32,7 +33,6 @@ __all__ = [
     "Encryption",
     "FrameType",
     "IAXCommand",
-    "IE",
     "MetaCommand",
     "SamplingRate",
 ]

@@ -175,14 +175,20 @@ def ensure_key() -> None:
 
 
 #: Dialplan applications the test extensions use (ASL3 uses ``autoload=no``).
-MODULES = ("app_echo.so", "app_playtones.so", "app_senddtmf.so", "app_sendtext.so",
-           "app_read.so", "res_indications.so", "res_clioriginate.so")
+MODULES = (
+    "app_echo.so",
+    "app_playtones.so",
+    "app_senddtmf.so",
+    "app_sendtext.so",
+    "app_read.so",
+    "res_indications.so",
+    "res_clioriginate.so",
+)
 
 
 def reload() -> None:
     for mod in MODULES:
-        subprocess.run(["asterisk", "-rx", f"module load {mod}"], check=False,
-                       capture_output=True)
+        subprocess.run(["asterisk", "-rx", f"module load {mod}"], check=False, capture_output=True)
     for cmd in ("keys init", "module reload res_crypto.so", "iax2 reload", "dialplan reload"):
         subprocess.run(["asterisk", "-rx", cmd], check=False, capture_output=True)
 

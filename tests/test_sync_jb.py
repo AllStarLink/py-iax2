@@ -58,8 +58,12 @@ def test_jb_duplicate():
 
 
 def test_sync_wrapper_call():
-    with SyncEndpoint("127.0.0.1", 0, users={"u": Credentials(secret="p")},
-                      allow_guest=False) as server, SyncEndpoint("127.0.0.1", 0) as client:
+    with (
+        SyncEndpoint(
+            "127.0.0.1", 0, users={"u": Credentials(secret="p")}, allow_guest=False
+        ) as server,
+        SyncEndpoint("127.0.0.1", 0) as client,
+    ):
         result = {}
 
         def serve():
@@ -72,8 +76,7 @@ def test_sync_wrapper_call():
 
         t = threading.Thread(target=serve)
         t.start()
-        call = client.dial("127.0.0.1", "9", port=server.port, username="u", secret="p",
-                           timeout=5)
+        call = client.dial("127.0.0.1", "9", port=server.port, username="u", secret="p", timeout=5)
         assert call.state.value == "answered"
         call.send_pcm(struct.pack("<160h", *([100] * 160)))
         call.hangup()

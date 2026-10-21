@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import logging
 import signal
 import sys
@@ -58,6 +59,7 @@ def _endpoint(args: argparse.Namespace, **kw: object) -> Endpoint:
 
 # --------------------------------------------------------------------- poke
 
+
 async def cmd_poke(args: argparse.Namespace) -> int:
     host, port = _hostport(args.peer)
     async with _endpoint(args) as ep:
@@ -76,6 +78,7 @@ async def cmd_poke(args: argparse.Namespace) -> int:
 
 # --------------------------------------------------------------------- call
 
+
 async def _print_events(call: Call) -> None:
     async for ev in call.events():
         if isinstance(ev, DTMFEvent):
@@ -93,10 +96,18 @@ async def cmd_call(args: argparse.Namespace) -> int:
     host, port = _hostport(args.peer)
     async with _endpoint(args) as ep:
         try:
-            call = await ep.dial(host, args.exten, port=port, context=args.context,
-                                 username=args.user, secret=args.secret,
-                                 caller_number=args.callerid, caller_name=args.callername,
-                                 formats=_formats(args.codecs), timeout=args.timeout)
+            call = await ep.dial(
+                host,
+                args.exten,
+                port=port,
+                context=args.context,
+                username=args.user,
+                secret=args.secret,
+                caller_number=args.callerid,
+                caller_name=args.callername,
+                formats=_formats(args.codecs),
+                timeout=args.timeout,
+            )
         except IAX2Error as exc:
             print(f"call failed: {exc}", file=sys.stderr)
             return 1
@@ -128,12 +139,20 @@ async def cmd_call(args: argparse.Namespace) -> int:
 
 # -------------------------------------------------------------------- serve
 
+
 async def _serve_call(call: Call, args: argparse.Namespace) -> None:
     log = logging.getLogger("iax2.cli")
-    log.info("incoming call %s from %s <%s> to %s", call.callno, call.info.calling_name,
-             call.info.calling_number, call.info.called_number)
-    print(f"call from {call.info.calling_name or ''} <{call.info.calling_number or ''}> "
-          f"to {call.info.called_number} ({format_names(call.format)})")
+    log.info(
+        "incoming call %s from %s <%s> to %s",
+        call.callno,
+        call.info.calling_name,
+        call.info.calling_number,
+        call.info.called_number,
+    )
+    print(
+        f"call from {call.info.calling_name or ''} <{call.info.calling_number or ''}> "
+        f"to {call.info.called_number} ({format_names(call.format)})"
+    )
     if args.ring:
         call.ring()
         await asyncio.sleep(args.ring)
@@ -144,8 +163,11 @@ async def _serve_call(call: Call, args: argparse.Namespace) -> None:
         async for frame in call.audio():
             call.send_audio(frame.payload, format=frame.format)
     else:
-        pcm = audio.read_wav(args.play, rate) if args.mode == "play" else \
-            audio.tone(args.tone, 1000, rate)
+        pcm = (
+            audio.read_wav(args.play, rate)
+            if args.mode == "play"
+            else audio.tone(args.tone, 1000, rate)
+        )
         while not call.is_ended:
             await call.play_pcm(pcm)
             if args.mode == "play":
@@ -164,8 +186,12 @@ async def cmd_serve(args: argparse.Namespace) -> int:
         args.mode = "tone"
     else:
         args.mode = "echo"
-    ep = _endpoint(args, users=users, allow_guest=not users or args.guest,
-                   require_calltoken=not args.no_calltoken)
+    ep = _endpoint(
+        args,
+        users=users,
+        allow_guest=not users or args.guest,
+        require_calltoken=not args.no_calltoken,
+    )
     async with ep:
         if args.registrar:
             ep.enable_registrar()
@@ -173,10 +199,8 @@ async def cmd_serve(args: argparse.Namespace) -> int:
         stop = asyncio.Event()
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
-            try:
+            with contextlib.suppress(NotImplementedError):  # Windows
                 loop.add_signal_handler(sig, stop.set)
-            except NotImplementedError:  # pragma: no cover - Windows
-                pass
         ep.on_call = lambda c: _serve_call(c, args)
         await stop.wait()
     return 0
@@ -184,12 +208,14 @@ async def cmd_serve(args: argparse.Namespace) -> int:
 
 # ----------------------------------------------------------------- register
 
+
 async def cmd_register(args: argparse.Namespace) -> int:
     host, port = _hostport(args.server)
     async with _endpoint(args) as ep:
         try:
-            reg = await ep.register(host, args.username, args.secret, port=port,
-                                    refresh=args.refresh)
+            reg = await ep.register(
+                host, args.username, args.secret, port=port, refresh=args.refresh
+            )
         except IAX2Error as exc:
             print(f"registration failed: {exc}", file=sys.stderr)
             return 1
@@ -201,15 +227,14 @@ async def cmd_register(args: argparse.Namespace) -> int:
         stop = asyncio.Event()
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
-            try:
+            with contextlib.suppress(NotImplementedError):  # Windows
                 loop.add_signal_handler(sig, stop.set)
-            except NotImplementedError:  # pragma: no cover
-                pass
         await stop.wait()
     return 0
 
 
 # ------------------------------------------------------------------- decode
+
 
 def cmd_decode(args: argparse.Namespace) -> int:
     from .frames import FullFrame, parse_datagram
@@ -222,13 +247,19 @@ def cmd_decode(args: argparse.Namespace) -> int:
 
 # --------------------------------------------------------------------- main
 
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="iax2-tool", description="IAX2 test utility")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    p.add_argument("-v", "--verbose", action="count", default=0,
-                   help="-v: protocol log, -vv: also every frame")
-    p.add_argument("-b", "--bind", default="0.0.0.0:0",
-                   help="local address[:port] (default 0.0.0.0:0 = any free port)")
+    p.add_argument(
+        "-v", "--verbose", action="count", default=0, help="-v: protocol log, -vv: also every frame"
+    )
+    p.add_argument(
+        "-b",
+        "--bind",
+        default="0.0.0.0:0",
+        help="local address[:port] (default 0.0.0.0:0 = any free port)",
+    )
     sub = p.add_subparsers(dest="command", required=True)
 
     s = sub.add_parser("poke", help="qualify a peer with POKE")
@@ -250,20 +281,27 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--record", metavar="WAV", help="record received audio")
     s.add_argument("--dtmf", help="digits to send after answer")
     s.add_argument("--text", help="text message to send after answer")
-    s.add_argument("-d", "--duration", type=float, default=10.0,
-                   help="seconds to stay connected (default 10)")
+    s.add_argument(
+        "-d", "--duration", type=float, default=10.0, help="seconds to stay connected (default 10)"
+    )
     s.add_argument("-t", "--timeout", type=float, default=30.0, help="answer timeout")
 
     s = sub.add_parser("serve", help="answer incoming calls")
-    s.add_argument("-u", "--user", action="append", metavar="NAME[:SECRET]",
-                   help="accepted user (repeatable); default: anyone")
+    s.add_argument(
+        "-u",
+        "--user",
+        action="append",
+        metavar="NAME[:SECRET]",
+        help="accepted user (repeatable); default: anyone",
+    )
     s.add_argument("--guest", action="store_true", help="also accept unknown callers")
     s.add_argument("--play", metavar="WAV", help="play a WAV file to callers")
     s.add_argument("--tone", type=float, metavar="HZ", help="play a tone to callers")
     s.add_argument("--ring", type=float, default=0, metavar="SEC", help="ring before answer")
     s.add_argument("--registrar", action="store_true", help="accept registrations from users")
-    s.add_argument("--no-calltoken", action="store_true",
-                   help="don't require call tokens (old clients)")
+    s.add_argument(
+        "--no-calltoken", action="store_true", help="don't require call tokens (old clients)"
+    )
 
     s = sub.add_parser("register", help="register with a server")
     s.add_argument("server", help="HOST[:PORT]")
@@ -280,15 +318,21 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point of ``iax2-tool``."""
     args = build_parser().parse_args(argv)
-    level = logging.WARNING if args.verbose == 0 else logging.INFO if args.verbose == 1 \
+    level = (
+        logging.WARNING
+        if args.verbose == 0
+        else logging.INFO
+        if args.verbose == 1
         else logging.DEBUG
+    )
     logging.basicConfig(level=level, format="%(asctime)s %(name)s: %(message)s")
     if args.verbose < 2:
         logging.getLogger("iax2.wire").setLevel(logging.WARNING)
     if args.command == "decode":
         return cmd_decode(args)
-    handler = {"poke": cmd_poke, "call": cmd_call, "serve": cmd_serve,
-               "register": cmd_register}[args.command]
+    handler = {"poke": cmd_poke, "call": cmd_call, "serve": cmd_serve, "register": cmd_register}[
+        args.command
+    ]
     try:
         return asyncio.run(handler(args))
     except KeyboardInterrupt:

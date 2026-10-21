@@ -40,11 +40,24 @@ def test_cli_poke_and_call(capsys):
         try:
             loop = asyncio.get_running_loop()
             rc = await loop.run_in_executor(
-                None, cli.main, ["-b", "127.0.0.1:0", "poke", f"127.0.0.1:{server.port}"])
+                None, cli.main, ["-b", "127.0.0.1:0", "poke", f"127.0.0.1:{server.port}"]
+            )
             assert rc == 0
             rc = await loop.run_in_executor(
-                None, cli.main, ["-b", "127.0.0.1:0", "call", f"127.0.0.1:{server.port}", "1",
-                                 "--tone", "440", "-d", "0.3"])
+                None,
+                cli.main,
+                [
+                    "-b",
+                    "127.0.0.1:0",
+                    "call",
+                    f"127.0.0.1:{server.port}",
+                    "1",
+                    "--tone",
+                    "440",
+                    "-d",
+                    "0.3",
+                ],
+            )
             assert rc == 0
         finally:
             await server.close()

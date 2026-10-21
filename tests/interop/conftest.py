@@ -18,8 +18,9 @@ ASTERISK = ("127.0.0.1", 4569)
 
 def ast(cmd: str) -> str:
     """Run an Asterisk CLI command (needs passwordless sudo)."""
-    r = subprocess.run(["sudo", "-n", "asterisk", "-rx", cmd], capture_output=True, text=True,
-                       timeout=10)
+    r = subprocess.run(
+        ["sudo", "-n", "asterisk", "-rx", cmd], capture_output=True, text=True, timeout=10
+    )
     return r.stdout
 
 

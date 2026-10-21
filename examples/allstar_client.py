@@ -41,8 +41,15 @@ async def main() -> None:
     args = ap.parse_args()
 
     async with iax2.Endpoint(port=0) as ep:
-        call = await ep.dial(args.host, args.node, port=args.port, username=args.user,
-                             secret=args.secret, caller_number=args.callsign, timeout=20)
+        call = await ep.dial(
+            args.host,
+            args.node,
+            port=args.port,
+            username=args.user,
+            secret=args.secret,
+            caller_number=args.callsign,
+            timeout=20,
+        )
         print(f"connected to node {args.node}")
 
         def on_event(ev: iax2.CallEvent) -> None:
@@ -58,9 +65,9 @@ async def main() -> None:
         call.on_audio = lambda f: received.append(f.pcm)
 
         pcm = audio.read_wav(args.play) if args.play else audio.tone(800, 1000)
-        call.radio_key()                  # PTT down
+        call.radio_key()  # PTT down
         await call.play_pcm(pcm)
-        call.radio_unkey()                # PTT up
+        call.radio_unkey()  # PTT up
 
         await asyncio.sleep(args.listen)
         await call.hangup()

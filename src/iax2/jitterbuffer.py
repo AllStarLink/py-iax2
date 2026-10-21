@@ -79,14 +79,24 @@ class JitterBuffer(Generic[F]):
         max_frames: Hard cap on buffered frames (oldest dropped beyond it).
     """
 
-    def __init__(self, frame_ms: int = 20, min_delay: int = 40, max_delay: int = 500,
-                 jitter_factor: float = 3.0, max_frames: int = 200) -> None:
+    def __init__(
+        self,
+        frame_ms: int = 20,
+        min_delay: int = 40,
+        max_delay: int = 500,
+        jitter_factor: float = 3.0,
+        max_frames: int = 200,
+    ) -> None:
         self.frame_ms = frame_ms
         self.min_delay = min_delay
         self.max_delay = max_delay
         self.jitter_factor = jitter_factor
         self.max_frames = max_frames
-        self.stats = JitterStats(delay=float(min_delay))
+        self.reset()
+
+    def reset(self) -> None:
+        """Forget all state (e.g. after a transfer or long silence)."""
+        self.stats = JitterStats(delay=float(self.min_delay))
         self._frames: list[F] = []
         self._keys: list[int] = []
         self._base: float | None = None  # arrival_ms - ts of the reference frame
@@ -101,11 +111,6 @@ class JitterBuffer(Generic[F]):
     def delay(self) -> float:
         """Current playout delay (ms)."""
         return self.stats.delay
-
-    def reset(self) -> None:
-        """Forget all state (e.g. after a transfer or long silence)."""
-        self.__init__(self.frame_ms, self.min_delay, self.max_delay,  # type: ignore[misc]
-                      self.jitter_factor, self.max_frames)
 
     def put(self, frame: F, arrival_ms: float) -> None:
         """Add a received frame."""
@@ -136,7 +141,9 @@ class JitterBuffer(Generic[F]):
         if len(self._frames) > self.max_frames:
             self._keys.pop(0)
             self._frames.pop(0)
-        target = min(self.max_delay, max(self.min_delay, self.frame_ms + self.jitter_factor * st.jitter))
+        target = min(
+            self.max_delay, max(self.min_delay, self.frame_ms + self.jitter_factor * st.jitter)
+        )
         if target > st.delay:
             st.delay = target  # grow immediately
 

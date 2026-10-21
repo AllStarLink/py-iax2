@@ -92,7 +92,9 @@ def test_keystore_loads_asterisk_layout(tmp_path, keypair):
         )
     )
     (tmp_path / "node.pub").write_bytes(
-        pub.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+        pub.public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
     )
     store = RSAKeyStore(tmp_path, passphrases={"node": "pass"})
     sig = rsa_sign(store.private("node"), "42")

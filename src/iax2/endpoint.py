@@ -48,9 +48,8 @@ from .call import Call, CallInfo, CallState, Direction
 from .calltoken import CallTokenGenerator
 from .codecs import available_formats
 from .constants import DEFAULT_PORT, IE, Cause, DPStatus, FrameType, IAXCommand
-from .exceptions import CallRejected, IAX2Error, TransportError
+from .exceptions import CallRejected, FrameError, IAX2Error, TransportError
 from .formats import AUDIO_MASK, Format, best_format, iter_formats
-from .exceptions import FrameError
 from .frames import (
     FullFrame,
     MiniFrame,
@@ -142,7 +141,7 @@ class _Protocol(asyncio.DatagramProtocol):
     def datagram_received(self, data: bytes, addr: Any) -> None:
         try:
             self.endpoint._datagram_received(data, (addr[0], addr[1]))
-        except Exception:  # noqa: BLE001 - never let a bad packet kill the transport
+        except Exception:
             log.exception("error processing datagram from %s", addr)
 
     def error_received(self, exc: Exception) -> None:
@@ -161,9 +160,15 @@ class Endpoint:
         sock: An already-bound UDP socket to use instead of ``host``/``port``.
     """
 
-    def __init__(self, host: str = "0.0.0.0", port: int = DEFAULT_PORT,
-                 config: EndpointConfig | None = None, *, sock: socket.socket | None = None,
-                 **overrides: Any) -> None:
+    def __init__(
+        self,
+        host: str = "0.0.0.0",
+        port: int = DEFAULT_PORT,
+        config: EndpointConfig | None = None,
+        *,
+        sock: socket.socket | None = None,
+        **overrides: Any,
+    ) -> None:
         cfg = config or EndpointConfig()
         for k, v in overrides.items():
             if not hasattr(cfg, k):
@@ -224,11 +229,13 @@ class Endpoint:
         try:
             if self._sock is not None:
                 transport, _ = await self._loop.create_datagram_endpoint(
-                    lambda: _Protocol(self), sock=self._sock)
+                    lambda: _Protocol(self), sock=self._sock
+                )
             else:
                 family = socket.AF_INET6 if ":" in self.host else socket.AF_INET
                 transport, _ = await self._loop.create_datagram_endpoint(
-                    lambda: _Protocol(self), local_addr=(self.host, self.port), family=family)
+                    lambda: _Protocol(self), local_addr=(self.host, self.port), family=family
+                )
         except OSError as exc:
             raise TransportError(f"cannot bind {self.host}:{self.port}: {exc}") from exc
         self._transport = transport
@@ -295,8 +302,14 @@ class Endpoint:
 
     def new_session(self, addr: Addr, owner: Any = None, *, peer_callno: int = 0) -> Session:
         """Allocate a call number and create a :class:`Session` for ``addr``."""
-        s = Session(self, self._alloc_callno(), addr, owner, peer_callno=peer_callno,
-                    timing=self.config.timing)
+        s = Session(
+            self,
+            self._alloc_callno(),
+            addr,
+            owner,
+            peer_callno=peer_callno,
+            timing=self.config.timing,
+        )
         self._sessions[s.callno] = s
         if peer_callno:
             self._by_peer[(addr, peer_callno)] = s
@@ -359,11 +372,19 @@ class Endpoint:
             wire_log.debug("TX %s:%s %s", addr[0], addr[1], desc)
         self._transport.sendto(data, addr)
 
-    def send_apathetic(self, addr: Addr, dest_call: int, command: int, ts: int, iseqno: int,
-                       ies: IEs | None = None) -> None:
+    def send_apathetic(
+        self, addr: Addr, dest_call: int, command: int, ts: int, iseqno: int, ies: IEs | None = None
+    ) -> None:
         """Send a stateless reply from call number 1 (Asterisk ``send_apathetic_reply``)."""
-        f = FullFrame.iax(command, ies, source_call=1, dest_call=dest_call, timestamp=ts,
-                          oseqno=0, iseqno=iseqno & 0xFF)
+        f = FullFrame.iax(
+            command,
+            ies,
+            source_call=1,
+            dest_call=dest_call,
+            timestamp=ts,
+            oseqno=0,
+            iseqno=iseqno & 0xFF,
+        )
         self.sendto(f.to_bytes(), addr)
 
     def send_inval(self, addr: Addr, src: int, dst: int) -> None:
@@ -431,10 +452,16 @@ class Endpoint:
         s: Session | None = None
         if frame.dest_call:
             s = self._sessions.get(frame.dest_call)
-            if s is not None and s.addr != addr and not (
-                s.transfer_addr == addr
-                or (frame.frame_type == FrameType.IAX
-                    and frame.subclass in (IAXCommand.TXCNT, IAXCommand.TXACC))
+            if (
+                s is not None
+                and s.addr != addr
+                and not (
+                    s.transfer_addr == addr
+                    or (
+                        frame.frame_type == FrameType.IAX
+                        and frame.subclass in (IAXCommand.TXCNT, IAXCommand.TXACC)
+                    )
+                )
             ):
                 s = None
         else:
@@ -448,16 +475,19 @@ class Endpoint:
         is_iax = frame.frame_type == FrameType.IAX
         cmd = frame.subclass if is_iax else None
         if is_iax and cmd == IAXCommand.POKE:
-            self.send_apathetic(addr, frame.source_call, IAXCommand.PONG, frame.timestamp,
-                                frame.iseqno + 1)
+            self.send_apathetic(
+                addr, frame.source_call, IAXCommand.PONG, frame.timestamp, frame.iseqno + 1
+            )
             return
         if is_iax and cmd == IAXCommand.ACK and frame.dest_call == 1:
             return
         if is_iax and cmd == IAXCommand.MWI and not frame.dest_call:
             self._handle_mwi(frame, addr)
             return
-        if not frame.dest_call and is_iax and cmd in (
-            IAXCommand.NEW, IAXCommand.REGREQ, IAXCommand.REGREL, IAXCommand.FWDOWNL
+        if (
+            not frame.dest_call
+            and is_iax
+            and cmd in (IAXCommand.NEW, IAXCommand.REGREQ, IAXCommand.REGREL, IAXCommand.FWDOWNL)
         ):
             try:
                 ies = frame.ies
@@ -470,20 +500,29 @@ class Endpoint:
                 self._new_incoming_call(frame, ies, addr)
             elif cmd in (IAXCommand.REGREQ, IAXCommand.REGREL):
                 if self.registrar is None:
-                    self.send_apathetic(addr, frame.source_call, IAXCommand.REGREJ,
-                                        frame.timestamp, frame.iseqno + 1,
-                                        IEs().add(IE.CAUSE, "Registration Refused")
-                                        .add(IE.CAUSECODE, int(Cause.FACILITY_REJECTED)))
+                    self.send_apathetic(
+                        addr,
+                        frame.source_call,
+                        IAXCommand.REGREJ,
+                        frame.timestamp,
+                        frame.iseqno + 1,
+                        IEs()
+                        .add(IE.CAUSE, "Registration Refused")
+                        .add(IE.CAUSECODE, int(Cause.FACILITY_REJECTED)),
+                    )
                     return
                 s = self.new_session(addr, None, peer_callno=frame.source_call)
                 self.registrar.attach(s)
                 s.handle_full(frame, addr)
             else:  # FWDOWNL: firmware download is not supported
-                self.send_apathetic(addr, frame.source_call, IAXCommand.UNSUPPORT,
-                                    frame.timestamp, frame.iseqno + 1)
+                self.send_apathetic(
+                    addr, frame.source_call, IAXCommand.UNSUPPORT, frame.timestamp, frame.iseqno + 1
+                )
             return
-        if not (is_iax and cmd in (IAXCommand.INVAL, IAXCommand.TXCNT, IAXCommand.TXACC,
-                                   IAXCommand.FWDOWNL)):
+        if not (
+            is_iax
+            and cmd in (IAXCommand.INVAL, IAXCommand.TXCNT, IAXCommand.TXACC, IAXCommand.FWDOWNL)
+        ):
             log.debug("frame for unknown call from %s: %s", addr, frame.describe())
             self.send_inval(addr, frame.dest_call, frame.source_call)
 
@@ -492,8 +531,14 @@ class Endpoint:
         token = ies.calltoken
         if token == b"":
             tok = self.calltokens.issue(addr[0], addr[1])
-            self.send_apathetic(addr, frame.source_call, IAXCommand.CALLTOKEN, frame.timestamp,
-                                frame.iseqno + 1, IEs().add(IE.CALLTOKEN, tok))
+            self.send_apathetic(
+                addr,
+                frame.source_call,
+                IAXCommand.CALLTOKEN,
+                frame.timestamp,
+                frame.iseqno + 1,
+                IEs().add(IE.CALLTOKEN, tok),
+            )
             return False
         if token is not None:
             if self.calltokens.validate(token, addr[0], addr[1]):
@@ -503,8 +548,11 @@ class Endpoint:
             return True
         else:
             log.warning("call from %s:%s rejected: call token required", *addr)
-        cmd = IAXCommand.REGREJ if frame.subclass in (IAXCommand.REGREQ, IAXCommand.REGREL) \
+        cmd = (
+            IAXCommand.REGREJ
+            if frame.subclass in (IAXCommand.REGREQ, IAXCommand.REGREL)
             else IAXCommand.REJECT
+        )
         self.send_apathetic(addr, frame.source_call, cmd, frame.timestamp, frame.iseqno + 1)
         return False
 
@@ -512,7 +560,7 @@ class Endpoint:
         if self.on_mwi is not None:
             try:
                 self.on_mwi(addr, frame.ies)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("on_mwi callback failed")
 
     # -------------------------------------------------------- incoming calls
@@ -520,9 +568,15 @@ class Endpoint:
     def _new_incoming_call(self, frame: FullFrame, ies: IEs, addr: Addr) -> None:
         info = CallInfo.from_ies(ies)
         session = self.new_session(addr, None, peer_callno=frame.source_call)
-        call = Call(self, session, Direction.INCOMING, info,
-                    capability=self.config.capability or 0, prefs=self.config.prefs or [],
-                    caller_first=self.config.caller_first)
+        call = Call(
+            self,
+            session,
+            Direction.INCOMING,
+            info,
+            capability=self.config.capability or 0,
+            prefs=self.config.prefs or [],
+            caller_first=self.config.caller_first,
+        )
         self._calls.add(call)
         session.start_keepalives()
         session.handle_full(frame, addr)  # sequences + ACKs the NEW
@@ -541,7 +595,7 @@ class Endpoint:
                 decision = None
             else:
                 decision = False
-        except Exception:  # noqa: BLE001
+        except Exception:
             log.exception("authenticator failed")
             decision = False
         if call.is_ended:
@@ -559,6 +613,7 @@ class Endpoint:
 
     def auth_failed(self, call: Call, command: int) -> None:
         """Reject a call/registration after failed authentication (Asterisk ``auth_fail``)."""
+
         def reject() -> None:
             if call.is_ended:
                 return
@@ -584,7 +639,7 @@ class Endpoint:
                 r = self.on_call(call)
                 if asyncio.iscoroutine(r):
                     self.spawn(r)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("on_call callback failed")
             return
         if self._incoming.full():
@@ -684,9 +739,13 @@ class Endpoint:
         fmt = format or (prefs[0] if prefs else best_format(capability))
         if info is None:
             info = CallInfo(
-                called_number=number, called_context=context, username=username,
-                calling_number=caller_number, calling_name=caller_name,
-                variables=dict(variables or {}), autoanswer=autoanswer,
+                called_number=number,
+                called_context=context,
+                username=username,
+                calling_number=caller_number,
+                calling_name=caller_name,
+                variables=dict(variables or {}),
+                autoanswer=autoanswer,
                 language=self.config.language,
                 encryption=self.config.encryption if encryption is None else encryption,
             )
@@ -695,8 +754,15 @@ class Endpoint:
         info.capability, info.format, info.codec_prefs = capability, fmt, prefs
         session = self.new_session(addr)
         creds = Credentials(username=username, secret=secret, private_key=private_key)
-        call = Call(self, session, Direction.OUTGOING, info, capability=capability, prefs=prefs,
-                    credentials=creds)
+        call = Call(
+            self,
+            session,
+            Direction.OUTGOING,
+            info,
+            capability=capability,
+            prefs=prefs,
+            credentials=creds,
+        )
         self._calls.add(call)
         ies = info.to_ies(capability, fmt, prefs)
         info.ies = ies
@@ -788,9 +854,18 @@ class Endpoint:
         self.registrar = registrar or Registrar(self, users=self.config.users)
         return self.registrar
 
-    async def register(self, host: str, username: str, secret: str | None = None, *,
-                       port: int = DEFAULT_PORT, refresh: int = 60, private_key: Any = None,
-                       wait: bool = True, timeout: float | None = 10.0) -> Registration:
+    async def register(
+        self,
+        host: str,
+        username: str,
+        secret: str | None = None,
+        *,
+        port: int = DEFAULT_PORT,
+        refresh: int = 60,
+        private_key: Any = None,
+        wait: bool = True,
+        timeout: float | None = 10.0,
+    ) -> Registration:
         """Register with a server and keep the registration refreshed.
 
         Args:
@@ -812,8 +887,9 @@ class Endpoint:
         """
         from .registration import Registration
 
-        reg = Registration(self, host, username, secret, port=port, refresh=refresh,
-                           private_key=private_key)
+        reg = Registration(
+            self, host, username, secret, port=port, refresh=refresh, private_key=private_key
+        )
         self.registrations.append(reg)
         await reg.start()
         if wait:
@@ -845,7 +921,9 @@ class Endpoint:
         if self.dialplan is not None:
             try:
                 status = int(self.dialplan(call, number))
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("dialplan hook failed")
-        call.session.send_command(IAXCommand.DPREP, IEs().add(IE.CALLED_NUMBER, number)
-                                  .add(IE.DPSTATUS, status).add(IE.REFRESH, 60))
+        call.session.send_command(
+            IAXCommand.DPREP,
+            IEs().add(IE.CALLED_NUMBER, number).add(IE.DPSTATUS, status).add(IE.REFRESH, 60),
+        )

@@ -215,8 +215,12 @@ class CallInfo:
         ies.add(IE.CODEC_PREFS, encode_codec_prefs(prefs))
         if self.calling_number:
             ies.add(IE.CALLING_NUMBER, self.calling_number)
-        ies.add(IE.CALLINGPRES, self.calling_pres if self.calling_pres is not None
-                else (0 if self.calling_number or self.calling_name else 0x43))
+        ies.add(
+            IE.CALLINGPRES,
+            self.calling_pres
+            if self.calling_pres is not None
+            else (0 if self.calling_number or self.calling_name else 0x43),
+        )
         ies.add(IE.CALLINGTON, self.calling_ton or 0)
         ies.add(IE.CALLINGTNS, self.calling_tns or 0)
         ies.add(IE.CALLINGANI2, self.calling_ani2 or 0)
@@ -247,7 +251,7 @@ class CallInfo:
             chunk = max(1, 255 - (len(name.encode()) + 1))
             data = value.encode()
             for i in range(0, max(1, len(data)), chunk):
-                ies.add(IE.VARIABLE, f"{name}={data[i:i + chunk].decode(errors='ignore')}")
+                ies.add(IE.VARIABLE, f"{name}={data[i : i + chunk].decode(errors='ignore')}")
         ies.add(IE.CALLTOKEN, b"")  # must be last (see Session._resend_with_token)
         return ies
 
@@ -358,8 +362,10 @@ class Call:
         return self._tx_codec
 
     def __repr__(self) -> str:
-        return (f"<Call {self.direction.value} {self.callno}/{self.peer_callno} "
-                f"{self.info.called_number!r} {self.state.value}>")
+        return (
+            f"<Call {self.direction.value} {self.callno}/{self.peer_callno} "
+            f"{self.info.called_number!r} {self.state.value}>"
+        )
 
     # ---------------------------------------------------------------- events
 
@@ -369,7 +375,7 @@ class Call:
                 result = self.on_event(event)
                 if asyncio.iscoroutine(result):
                     self.endpoint.spawn(result)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("on_event callback failed")
         self._events.put_nowait(event)
 
@@ -431,8 +437,9 @@ class Call:
             self._raise_ended()
         waiters = [asyncio.ensure_future(ev.wait()), asyncio.ensure_future(self._ended.wait())]
         try:
-            done, _ = await asyncio.wait(waiters, timeout=timeout,
-                                         return_when=asyncio.FIRST_COMPLETED)
+            done, _ = await asyncio.wait(
+                waiters, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
+            )
         finally:
             for w in waiters:
                 w.cancel()
@@ -444,8 +451,9 @@ class Call:
     def _raise_ended(self) -> None:
         if self.session.error == "timeout":
             raise CallTimeout("peer stopped responding")
-        raise CallRejected(f"call ended: {self.cause or 'no cause given'}",
-                           self.cause, self.cause_code)
+        raise CallRejected(
+            f"call ended: {self.cause or 'no cause given'}", self.cause, self.cause_code
+        )
 
     # --------------------------------------------------------- call control
 
@@ -476,8 +484,9 @@ class Call:
         if not fmt:
             self.reject("Unable to negotiate codec", Cause.BEARERCAPABILITY_NOTAVAIL)
             raise CallError("no common codec")
-        self.session.send_command(IAXCommand.ACCEPT, IEs().add(IE.FORMAT, fmt & 0xFFFFFFFF)
-                                  .add(IE.FORMAT2, fmt))
+        self.session.send_command(
+            IAXCommand.ACCEPT, IEs().add(IE.FORMAT, fmt & 0xFFFFFFFF).add(IE.FORMAT2, fmt)
+        )
         self._on_accepted(fmt)
         return fmt
 
@@ -564,8 +573,9 @@ class Call:
     def transfer(self, number: str, context: str | None = None) -> None:
         """Ask the peer to blind-transfer this call (IAX TRANSFER)."""
         self._require_active()
-        self.session.send_command(IAXCommand.TRANSFER,
-                                  IEs.build((IE.CALLED_NUMBER, number), (IE.CALLED_CONTEXT, context)))
+        self.session.send_command(
+            IAXCommand.TRANSFER, IEs.build((IE.CALLED_NUMBER, number), (IE.CALLED_CONTEXT, context))
+        )
 
     def reject(self, cause: str | None = None, cause_code: int = Cause.CALL_REJECTED) -> None:
         """Reject a call that has not been answered (IAX REJECT).
@@ -581,7 +591,9 @@ class Call:
         self.session.send_command(IAXCommand.REJECT, ies, final=True)
         self._end(cause, int(cause_code), by_peer=False, reason="local")
 
-    async def hangup(self, cause_code: int = Cause.NORMAL_CLEARING, cause: str | None = None) -> None:
+    async def hangup(
+        self, cause_code: int = Cause.NORMAL_CLEARING, cause: str | None = None
+    ) -> None:
         """Hang up the call (IAX HANGUP) and wait briefly for it to be acknowledged."""
         if self.state is CallState.HUNGUP:
             return
@@ -599,8 +611,9 @@ class Call:
 
     # -------------------------------------------------------------- media out
 
-    def send_audio(self, payload: bytes, *, format: int | None = None,
-                   samples: int | None = None) -> None:
+    def send_audio(
+        self, payload: bytes, *, format: int | None = None, samples: int | None = None
+    ) -> None:
         """Send one encoded voice frame.
 
         Args:
@@ -652,7 +665,7 @@ class Call:
         for n, i in enumerate(range(0, len(pcm), step)):
             if self.is_ended:
                 return
-            chunk = pcm[i:i + step]
+            chunk = pcm[i : i + step]
             if len(chunk) < step:
                 chunk += bytes(step - len(chunk))
             self.send_pcm(chunk)
@@ -718,8 +731,9 @@ class Call:
         except TimeoutError:
             return None
 
-    async def playout(self, *, frame_ms: int = 20, min_delay: int = 40, max_delay: int = 500,
-                      conceal: bool = True) -> AsyncIterator[AudioFrame]:
+    async def playout(
+        self, *, frame_ms: int = 20, min_delay: int = 40, max_delay: int = 500, conceal: bool = True
+    ) -> AsyncIterator[AudioFrame]:
         """Iterate over received audio smoothed by a :class:`~iax2.jitterbuffer.JitterBuffer`.
 
         Frames are yielded at a steady ``frame_ms`` pace, in timestamp order,
@@ -744,8 +758,13 @@ class Call:
                     if item is not None:
                         yield item
                     elif conceal and self._rx_codec is not None:
-                        yield AudioFrame(self._rx_codec.silence(frame_ms), self._rx_format, 0,
-                                         codec=self._rx_codec, lost=True)
+                        yield AudioFrame(
+                            self._rx_codec.silence(frame_ms),
+                            self._rx_format,
+                            0,
+                            codec=self._rx_codec,
+                            lost=True,
+                        )
                 next_tick += frame_ms / 1000
                 delay = next_tick - loop.time()
                 if delay < -1:
@@ -767,16 +786,27 @@ class Call:
 
     def on_iax(self, session: Session, frame: FullFrame, ies: IEs) -> None:
         cmd = frame.subclass
-        handler = getattr(self, f"_iax_{IAXCommand(cmd).name.lower()}", None) \
-            if cmd in IAXCommand._value2member_map_ else None
+        handler = (
+            getattr(self, f"_iax_{IAXCommand(cmd).name.lower()}", None)
+            if cmd in IAXCommand._value2member_map_
+            else None
+        )
         if handler is not None:
             handler(frame, ies)
         else:
             log.debug("%r: unsupported IAX command %s", self, cmd)
             session.send_command(IAXCommand.UNSUPPORT, IEs().add(IE.IAX_UNKNOWN, int(cmd) & 0xFF))
 
-    def on_media(self, session: Session, frame_type: int, subclass: int, payload: bytes,
-                 timestamp: int, full: bool, mark: bool) -> None:
+    def on_media(
+        self,
+        session: Session,
+        frame_type: int,
+        subclass: int,
+        payload: bytes,
+        timestamp: int,
+        full: bool,
+        mark: bool,
+    ) -> None:
         if frame_type == FrameType.VOICE:
             if subclass != self._rx_format:
                 changed = bool(self._rx_format)
@@ -790,7 +820,7 @@ class Call:
                     r = self.on_audio(af)
                     if asyncio.iscoroutine(r):
                         self.endpoint.spawn(r)
-                except Exception:  # noqa: BLE001
+                except Exception:
                     log.exception("on_audio callback failed")
                 return
             if self._audio.full():
@@ -817,8 +847,12 @@ class Call:
             self._emit(UnknownFrame(self, frame_type, subclass, payload))
 
     def on_session_error(self, session: Session, reason: str) -> None:
-        self._end("peer not responding", int(Cause.DESTINATION_OUT_OF_ORDER), by_peer=True,
-                  reason="timeout")
+        self._end(
+            "peer not responding",
+            int(Cause.DESTINATION_OUT_OF_ORDER),
+            by_peer=True,
+            reason="timeout",
+        )
 
     def on_session_destroyed(self, session: Session) -> None:
         if self.state is not CallState.HUNGUP:
@@ -846,12 +880,17 @@ class Call:
         if not fmt & self.capability:
             self.session.send_command(
                 IAXCommand.REJECT,
-                IEs().add(IE.CAUSE, "Unable to negotiate codec")
+                IEs()
+                .add(IE.CAUSE, "Unable to negotiate codec")
                 .add(IE.CAUSECODE, int(Cause.BEARERCAPABILITY_NOTAVAIL)),
                 final=True,
             )
-            self._end("Unable to negotiate codec", int(Cause.BEARERCAPABILITY_NOTAVAIL),
-                      by_peer=False, reason="local")
+            self._end(
+                "Unable to negotiate codec",
+                int(Cause.BEARERCAPABILITY_NOTAVAIL),
+                by_peer=False,
+                reason="local",
+            )
             return
         if fmt.bit_count() > 1:
             from .formats import best_format
@@ -867,13 +906,14 @@ class Call:
             creds = Credentials(ies.get(IE.USERNAME), creds.secret, creds.private_key)
         self._set_state(CallState.AUTHENTICATING)
         try:
-            reply, method = build_auth_reply(creds, ies.get(IE.AUTHMETHODS, 0),
-                                             ies.get(IE.CHALLENGE))
+            reply, method = build_auth_reply(
+                creds, ies.get(IE.AUTHMETHODS, 0), ies.get(IE.CHALLENGE)
+            )
         except AuthenticationError as exc:
             log.warning("%r: %s", self, exc)
-            self.session.send_command(IAXCommand.HANGUP,
-                                      IEs().add(IE.CAUSECODE, int(Cause.NORMAL_CLEARING)),
-                                      final=True)
+            self.session.send_command(
+                IAXCommand.HANGUP, IEs().add(IE.CAUSECODE, int(Cause.NORMAL_CLEARING)), final=True
+            )
             self._end(str(exc), int(Cause.FACILITY_NOT_SUBSCRIBED), by_peer=False, reason="auth")
             return
         self.auth_method = method
@@ -885,11 +925,15 @@ class Call:
 
             crypto.enable_caller(self.session, challenge, creds.secret, enc)
         elif self.endpoint.config.force_encryption:
-            self.session.send_command(IAXCommand.HANGUP,
-                                      IEs().add(IE.CAUSECODE, int(Cause.FACILITY_REJECTED)),
-                                      final=True)
-            self._end("encryption not negotiated", int(Cause.FACILITY_REJECTED), by_peer=False,
-                      reason="local")
+            self.session.send_command(
+                IAXCommand.HANGUP, IEs().add(IE.CAUSECODE, int(Cause.FACILITY_REJECTED)), final=True
+            )
+            self._end(
+                "encryption not negotiated",
+                int(Cause.FACILITY_REJECTED),
+                by_peer=False,
+                reason="local",
+            )
             return
         self.session.send_command(IAXCommand.AUTHREP, reply)
 
@@ -1002,8 +1046,9 @@ class Call:
             # From now on the caller encrypts (starting with AUTHREP).
             from . import crypto
 
-            crypto.enable_callee(self.session, self._challenge, (creds.secret or "").split(";"),
-                                 enc)
+            crypto.enable_callee(
+                self.session, self._challenge, (creds.secret or "").split(";"), enc
+            )
 
     def _on_accepted(self, fmt: int) -> None:
         self.format = fmt
@@ -1040,8 +1085,9 @@ class Call:
                 self.cause_code = int(Cause.NORMAL_CIRCUIT_CONGESTION)
             self._emit(ControlEvent(self, control, payload))
 
-    def _end(self, cause: str | None, cause_code: int | None, *, by_peer: bool,
-             reason: str) -> None:
+    def _end(
+        self, cause: str | None, cause_code: int | None, *, by_peer: bool, reason: str
+    ) -> None:
         if self.state is CallState.HUNGUP:
             return
         self.cause = cause if cause is not None else self.cause

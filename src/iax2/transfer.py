@@ -140,8 +140,9 @@ class TransferManager:
             for c in (call, other):
                 self._bridge.pop(c.callno, None)
                 c._end("transferred", None, by_peer=False, reason="transferred")
-        log.info("native transfer of %r and %r %s", call, other,
-                 "(media only)" if media else "released")
+        log.info(
+            "native transfer of %r and %r %s", call, other, "(media only)" if media else "released"
+        )
 
     # ---------------------------------------------------------- endpoint role
 
@@ -160,8 +161,9 @@ class TransferManager:
         txid = ies.get(IE.TRANSFERID)
         out = IEs().add(IE.TRANSFERID, txid) if txid else None
         # send_command_transfer(): seqno 0, to the transfer address, retried <= 1 s
-        s.send(FrameType.IAX, IAXCommand.TXCNT, out.to_bytes() if out else b"", transfer=True,
-               seqno=0)
+        s.send(
+            FrameType.IAX, IAXCommand.TXCNT, out.to_bytes() if out else b"", transfer=True, seqno=0
+        )
 
     def on_txcnt(self, call: Call, frame: FullFrame, ies: IEs) -> None:
         if self.state(call) is not TransferState.NONE:
