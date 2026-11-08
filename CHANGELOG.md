@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0b1] - unreleased
+## [0.1.0b1] - 2026-11-07
 
 First release: a complete rewrite of the earlier skeleton.
 
