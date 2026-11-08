@@ -1,3 +1,9 @@
+python-iax2 (0.1.0~b2-1) unstable; urgency=medium
+
+  * New upstream beta: hosted documentation, Furo theme.
+
+ -- Jason D. McCormick <jason@mfamily.org>  Sat, 07 Nov 2026 20:17:51 -0500
+
 python-iax2 (0.1.0~b1-1) unstable; urgency=medium
 
   * Initial release.

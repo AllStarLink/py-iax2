@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0b2] - 2026-11-07
+
+### Added
+
+- Hosted documentation at <https://py-iax2.readthedocs.io/>, linked from the
+  README and the PyPI project page.
+
+### Changed
+
+- Documentation uses the Furo Sphinx theme.
+
 ## [0.1.0b1] - 2026-11-07
 
 First release: a complete rewrite of the earlier skeleton.
