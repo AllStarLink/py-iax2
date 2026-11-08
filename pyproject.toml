@@ -38,6 +38,7 @@ docs = ["sphinx>=5"]
 
 [project.urls]
 Homepage = "https://github.com/AllStarLink/py-iax2"
+Documentation = "https://py-iax2.readthedocs.io/"
 Source = "https://github.com/AllStarLink/py-iax2"
 Changelog = "https://github.com/AllStarLink/py-iax2/blob/main/CHANGELOG.md"
 

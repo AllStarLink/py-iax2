@@ -76,8 +76,8 @@ iax2-tool serve -u alice:s3cret
 ## Documentation
 
 Full documentation (user guide, Asterisk/AllStarLink notes, protocol notes,
-API reference) is in `docs/`; build it with
-`sphinx-build -b html docs docs/_build/html`.
+API reference) is at <https://py-iax2.readthedocs.io/>. The source is in
+`docs/`; build it locally with `sphinx-build -b html docs docs/_build/html`.
 
 ## Testing
 
