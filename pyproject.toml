@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Jason D. McCormick", email = "jason@mfamily.org" }]
 keywords = ["iax", "iax2", "voip", "asterisk", "allstarlink", "telephony", "rfc5456"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
     "Intended Audience :: Telecommunications Industry",
