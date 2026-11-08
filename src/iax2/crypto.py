@@ -121,29 +121,48 @@ class CallCrypto:
             return data
         return encrypt_datagram(self.tx_key, data)
 
-    def decrypt(self, data: bytes) -> bytes | None:
-        """Decrypt an incoming datagram, learning the key if necessary."""
+    def decrypt(self, data: bytes, rx_seq: int | None = None) -> bytes | None:
+        """Decrypt an incoming datagram, learning the key if necessary.
+
+        Args:
+            data: The datagram as received.
+            rx_seq: The session's next expected inbound sequence number, used
+                to tell which candidate secret the caller used.
+        """
         if self.rx_key is not None:
             return decrypt_datagram(self.rx_key, data)
-        from .exceptions import FrameError
-        from .frames import FullFrame
-
         for key in self.candidates:
             plain = decrypt_datagram(key, data)
             if plain is None:
                 continue
-            if data[0] & 0x80:
-                # Pick the secret whose decryption yields a well-formed frame;
-                # Asterisk simply takes the first secret.
-                try:
-                    FullFrame.from_bytes(plain).ies  # noqa: B018
-                except FrameError:
-                    if len(self.candidates) > 1:
-                        continue
+            # Pick the secret whose decryption yields a plausible frame (Asterisk
+            # simply takes the first secret). Parsing alone is not enough: with a
+            # wrong key, about 1% of random plaintexts still parse.
+            if len(self.candidates) > 1 and not _plausible(plain, rx_seq):
+                continue
             self.rx_key = self.tx_key = key
             self.candidates = []
             return plain
         return None
+
+
+def _plausible(plain: bytes, rx_seq: int | None) -> bool:
+    """Whether a decrypted datagram looks like the frame the peer would send."""
+    from .constants import FrameType
+    from .exceptions import FrameError
+    from .frames import FullFrame
+
+    if not plain[0] & 0x80:
+        return True  # a mini frame carries nothing to check
+    try:
+        frame = FullFrame.from_bytes(plain)
+        frame.ies  # noqa: B018
+    except FrameError:
+        return False
+    if not isinstance(frame.frame_type, FrameType):
+        return False
+    # The expected sequence number, or a retransmission of a recent frame.
+    return rx_seq is None or (rx_seq - frame.oseqno) & 0xFF < 8
 
 
 def _digest(challenge: str, secret: str) -> bytes:

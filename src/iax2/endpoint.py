@@ -438,7 +438,7 @@ class Endpoint:
         elif kind == "mini":
             enc = self._by_peer.get((addr, src)) or self._by_transfer.get((addr, src))
         if enc is not None and enc.crypto is not None and enc.crypto.rx_active:
-            plain = enc.crypto.decrypt(data)
+            plain = enc.crypto.decrypt(data, enc.iseqno)
             if plain is None:
                 log.info("%r: packet decrypt failed", enc)
                 return
