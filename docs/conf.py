@@ -28,11 +28,7 @@ napoleon_attr_annotations = True
 
 templates_path: list[str] = []
 exclude_patterns = ["_build"]
-html_theme = "alabaster"
-html_theme_options = {
-    "description": "Pure-Python IAX2 for asyncio",
-    "fixed_sidebar": True,
-}
+html_theme = "furo"
 html_title = f"py-iax2 {release}"
 nitpicky = True
 

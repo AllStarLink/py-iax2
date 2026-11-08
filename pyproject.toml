@@ -34,7 +34,7 @@ dependencies = []
 # RSA authentication and AES-128 call encryption.
 crypto = ["cryptography>=3.4"]
 dev = ["pytest>=7", "pytest-asyncio>=0.21", "mypy", "ruff", "cryptography>=3.4"]
-docs = ["sphinx>=5"]
+docs = ["sphinx>=5", "furo"]
 
 [project.urls]
 Homepage = "https://github.com/AllStarLink/py-iax2"
